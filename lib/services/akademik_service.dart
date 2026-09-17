@@ -128,6 +128,9 @@ class AkademikService {
   Future<dynamic> khsCetakUrl(String periode) =>
       _api.get('/api/akademik/khs/cetak-url', query: {'periode': periode});
 
+  Future<dynamic> khsCetak(String periode) =>
+      _api.get('/api/akademik/khs/cetak', query: {'periode': periode});
+
   // ---------------------------------------------------------- Transkrip
 
   Future<dynamic> transkrip() => _api.get('/api/akademik/transkrip');
