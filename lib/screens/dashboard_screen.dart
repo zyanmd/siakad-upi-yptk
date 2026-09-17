@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -69,7 +70,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             _header(auth.nama, auth.nim),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 96),
               child: FutureBuilder<Map<String, dynamic>>(
                 key: ValueKey('dash-$_tick'),
                 future: _dashboard(),
@@ -142,133 +143,108 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _header(String nama, String nim) {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: AppColors.headerGradient,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+      decoration: BoxDecoration(
+        color: context.card,
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(22)),
+        border: Border(
+          bottom: BorderSide(
+            color: context.border,
+            width: 0.5,
+          ),
         ),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(26)),
       ),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned(
-            right: -34,
-            top: -26,
-            child: Container(
-              width: 140,
-              height: 140,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.amber.withValues(alpha: 0.14),
-              ),
-            ),
-          ),
-          Positioned(
-            right: 90,
-            bottom: -30,
-            child: Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.06),
-              ),
-            ),
-          ),
-          SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 12, 18, 20),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _greeting(),
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.72),
-                            fontSize: 12.5,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          nama,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 9),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.13),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.22)),
-                          ),
-                          child: Text(
-                            'NIM $nim',
-                            style: const TextStyle(
-                              color: AppColors.amberLight,
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  InkWell(
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const ProfilAkademikScreen(),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _greeting(),
+                      style: TextStyle(
+                        color: context.textMuted,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: -0.2,
                       ),
                     ),
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      width: 52,
-                      height: 52,
-                      alignment: Alignment.center,
+                    const SizedBox(height: 3),
+                    Text(
+                      nama,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: context.textPrimary,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 9, vertical: 3.5),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: AppColors.logoGradient,
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
+                        color: AppColors.primaryYellow.withValues(alpha: 0.16),
                         borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.15),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
                       ),
                       child: Text(
-                        initialsOf(nama),
+                        'NIM $nim',
                         style: const TextStyle(
-                          color: AppColors.indigo950,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w900,
+                          color: Color(0xFFC49E18),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.2,
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
+              const SizedBox(width: 14),
+              InkWell(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const ProfilAkademikScreen(),
+                  ),
+                ),
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  width: 50,
+                  height: 50,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: AppColors.logoGradient,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primaryYellow.withValues(alpha: 0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    initialsOf(nama),
+                    style: const TextStyle(
+                      color: Color(0xFF1C1917),
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -584,23 +560,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => const TagihanScreen()),
       ),
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [AppColors.indigo900, AppColors.indigo500],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.indigo700.withValues(alpha: 0.35),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
-            ),
-          ],
+          color: context.card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: context.border, width: 0.5),
+          boxShadow: context.isDark
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
         ),
         child: Row(
           children: [
@@ -608,38 +583,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(13),
+                color: AppColors.primaryYellow.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.receipt_long_rounded,
-                  color: AppColors.amberLight, size: 22),
+              child: const Icon(CupertinoIcons.creditcard_fill,
+                  color: Color(0xFFC49E18), size: 22),
             ),
-            const SizedBox(width: 13),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Tagihan & Pembayaran',
                     style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
+                      color: context.textPrimary,
+                      fontWeight: FontWeight.w700,
                       fontSize: 14,
+                      letterSpacing: -0.3,
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   Text(
                     'Cek status tagihan, VA, dan riwayat bayar',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.72),
+                      color: context.textMuted,
                       fontSize: 11.5,
+                      letterSpacing: -0.2,
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded,
-                color: AppColors.amber, size: 26),
+            Icon(CupertinoIcons.chevron_forward,
+                color: context.textMuted, size: 18),
           ],
         ),
       ),

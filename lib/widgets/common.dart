@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -23,28 +24,24 @@ void appToast(BuildContext context, String message, {bool error = false}) {
 String errorText(Object e) =>
     e is ApiException ? e.message : 'Terjadi kesalahan. Coba lagi.';
 
-/// Dialog konfirmasi Ya/Tidak; return true bila setuju.
+/// Dialog konfirmasi iOS Cupertino style; return true bila setuju.
 Future<bool> confirmDialog(
     BuildContext context, String title, String message) async {
-  final ok = await showDialog<bool>(
+  final ok = await showCupertinoDialog<bool>(
     context: context,
-    builder: (ctx) => AlertDialog(
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      title: Text(title,
-          style:
-              const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-      content: Text(message,
-          style: const TextStyle(fontSize: 13.5, height: 1.5)),
-      actionsPadding:
-          const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    builder: (ctx) => CupertinoAlertDialog(
+      title: Text(title),
+      content: Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Text(message),
+      ),
       actions: [
-        TextButton(
+        CupertinoDialogAction(
           onPressed: () => Navigator.of(ctx).pop(false),
           child: const Text('Batal'),
         ),
-        FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: AppColors.indigo700),
+        CupertinoDialogAction(
+          isDestructiveAction: true,
           onPressed: () => Navigator.of(ctx).pop(true),
           child: const Text('Ya, Lanjutkan'),
         ),
@@ -92,10 +89,14 @@ class LoadingView extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const CircularProgressIndicator(
-              color: AppColors.indigo700, strokeWidth: 2.6),
-          const SizedBox(height: 14),
-          Text(label, style: TextStyle(color: context.textMuted, fontSize: 12.5)),
+          const CupertinoActivityIndicator(radius: 12),
+          const SizedBox(height: 12),
+          Text(label,
+              style: TextStyle(
+                color: context.textMuted,
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+              )),
         ],
       ),
     );
@@ -103,7 +104,7 @@ class LoadingView extends StatelessWidget {
 }
 
 class EmptyView extends StatelessWidget {
-  const EmptyView({super.key, this.icon = Icons.inbox_outlined, this.message});
+  const EmptyView({super.key, this.icon = CupertinoIcons.tray, this.message});
   final IconData icon;
   final String? message;
 
@@ -115,12 +116,16 @@ class EmptyView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 46, color: context.textMuted.withOpacity(0.6)),
+            Icon(icon, size: 44, color: context.textMuted.withValues(alpha: 0.5)),
             const SizedBox(height: 12),
             Text(
               message ?? 'Tidak ada data untuk ditampilkan.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: context.textMuted, fontSize: 13),
+              style: TextStyle(
+                color: context.textMuted,
+                fontSize: 13,
+                letterSpacing: -0.2,
+              ),
             ),
           ],
         ),
@@ -143,32 +148,39 @@ class ErrorRetry extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppColors.red.withOpacity(0.08),
+                color: AppColors.red.withValues(alpha: 0.10),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.cloud_off_rounded,
-                  size: 34, color: AppColors.red),
+              child: const Icon(CupertinoIcons.exclamationmark_circle,
+                  size: 32, color: AppColors.red),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: TextStyle(color: context.textPrimary, fontSize: 13.5),
+              style: TextStyle(
+                color: context.textPrimary,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: onRetry,
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.indigo700,
+                backgroundColor: AppColors.primaryYellow,
+                foregroundColor: const Color(0xFF1C1917),
+                elevation: 0,
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
               ),
-              icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text('Coba Lagi'),
+              icon: const Icon(CupertinoIcons.arrow_clockwise, size: 16),
+              label: const Text('Coba Lagi',
+                  style: TextStyle(fontWeight: FontWeight.w700)),
             ),
           ],
         ),
@@ -179,6 +191,7 @@ class ErrorRetry extends StatelessWidget {
 
 // --------------------------------------------------------- Building blocks
 
+/// Header seksi bergaya iOS Inset Grouped.
 class SectionTitle extends StatelessWidget {
   const SectionTitle(this.title, {super.key, this.trailing});
   final String title;
@@ -186,41 +199,39 @@ class SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 4,
-          height: 16,
-          decoration: BoxDecoration(
-            color: AppColors.amber,
-            borderRadius: BorderRadius.circular(3),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            title,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: context.textPrimary,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.3,
+                color: context.textPrimary,
+              ),
             ),
           ),
-        ),
-        if (trailing != null) trailing!,
-      ],
+          if (trailing != null) trailing!,
+        ],
+      ),
     );
   }
 }
 
-/// Kartu permukaan standar aplikasi.
+/// Kartu permukaan iOS Inset Grouped dengan border hairline 0.5px.
 class SurfaceCard extends StatelessWidget {
-  const SurfaceCard(
-      {super.key,
-      required this.child,
-      this.padding = const EdgeInsets.all(16),
-      this.onTap,
-      this.margin = EdgeInsets.zero});
+  const SurfaceCard({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(16),
+    this.onTap,
+    this.margin = EdgeInsets.zero,
+  });
+
   final Widget child;
   final EdgeInsets padding;
   final EdgeInsets margin;
@@ -228,25 +239,43 @@ class SurfaceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final borderSide = BorderSide(
+      color: context.border,
+      width: 0.5,
+    );
+
     return Container(
       margin: margin,
       decoration: BoxDecoration(
         color: context.card,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: context.border),
+        border: Border.fromBorderSide(borderSide),
+        boxShadow: context.isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
       ),
-      child: onTap == null
-          ? Padding(padding: padding, child: child)
-          : InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(16),
-              child: Padding(padding: padding, child: child),
-            ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: onTap == null
+            ? Padding(padding: padding, child: child)
+            : InkWell(
+                onTap: onTap,
+                borderRadius: BorderRadius.circular(16),
+                child: Padding(padding: padding, child: child),
+              ),
+      ),
     );
   }
 }
 
-/// Chip status dengan pewarnaan otomatis dari kata kunci.
+/// Chip status kapsul khas iOS (pastel fill + dark text).
 class StatusChip extends StatelessWidget {
   const StatusChip({super.key, this.label, this.kind});
   final String? label;
@@ -267,15 +296,15 @@ class StatusChip extends StatelessWidget {
       'menunggu', 'review', 'izin', 'sakit', 'tertunda',
     ];
     if (greenWords.any((w) => text.contains(w))) {
-      return (AppColors.green.withOpacity(0.12), AppColors.green);
+      return (AppColors.green.withValues(alpha: 0.14), AppColors.green);
     }
     if (redWords.any((w) => text.contains(w))) {
-      return (AppColors.red.withOpacity(0.10), AppColors.red);
+      return (AppColors.red.withValues(alpha: 0.12), AppColors.red);
     }
     if (amberWords.any((w) => text.contains(w))) {
-      return (AppColors.amber.withOpacity(0.16), AppColors.orange);
+      return (AppColors.orange.withValues(alpha: 0.14), AppColors.orange);
     }
-    return (Colors.grey.withOpacity(0.10), AppColors.grey);
+    return (AppColors.grey.withValues(alpha: 0.12), AppColors.grey);
   }
 
   @override
@@ -284,23 +313,34 @@ class StatusChip extends StatelessWidget {
     final (bg, fg) = _colors();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration:
-          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: Text(
         text,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-            color: fg, fontSize: 11, fontWeight: FontWeight.w700),
+          color: fg,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.2,
+        ),
       ),
     );
   }
 }
 
-/// Baris key - value; tekan lama untuk salin nilai.
+/// Baris key - value iOS style; tekan lama untuk salin nilai.
 class KeyValueRow extends StatelessWidget {
-  const KeyValueRow(
-      {super.key, required this.label, required this.value, this.onTapValue});
+  const KeyValueRow({
+    super.key,
+    required this.label,
+    required this.value,
+    this.onTapValue,
+  });
+
   final String label;
   final String value;
   final VoidCallback? onTapValue;
@@ -318,8 +358,14 @@ class KeyValueRow extends StatelessWidget {
           children: [
             Expanded(
               flex: 5,
-              child: Text(label,
-                  style: TextStyle(color: context.textMuted, fontSize: 12.5)),
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: context.textMuted,
+                  fontSize: 12.5,
+                  letterSpacing: -0.2,
+                ),
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -331,6 +377,7 @@ class KeyValueRow extends StatelessWidget {
                   color: context.textPrimary,
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
+                  letterSpacing: -0.2,
                 ),
               ),
             ),
@@ -341,14 +388,16 @@ class KeyValueRow extends StatelessWidget {
   }
 }
 
-/// Kartu statistik kecil untuk dashboard.
+/// Kartu statistik iOS Health/Activity style.
 class StatCard extends StatelessWidget {
-  const StatCard(
-      {super.key,
-      required this.label,
-      required this.value,
-      required this.icon,
-      required this.color});
+  const StatCard({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
   final String label;
   final String value;
   final IconData icon;
@@ -357,11 +406,20 @@ class StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
         color: context.card,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: context.border),
+        border: Border.all(color: context.border, width: 0.5),
+        boxShadow: context.isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -370,19 +428,20 @@ class StatCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
+              color: color.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, size: 16, color: color),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 14.5,
+              fontSize: 16,
               fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
               color: context.textPrimary,
             ),
           ),
@@ -391,7 +450,11 @@ class StatCard extends StatelessWidget {
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 10.5, color: context.textMuted),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: context.textMuted,
+            ),
           ),
         ],
       ),
@@ -399,7 +462,7 @@ class StatCard extends StatelessWidget {
   }
 }
 
-/// Tile menu grid di dashboard.
+/// Tile menu grid khas iOS Home Screen / Springboard style.
 class MenuTile extends StatelessWidget {
   const MenuTile({
     super.key,
@@ -408,6 +471,7 @@ class MenuTile extends StatelessWidget {
     required this.color,
     required this.onTap,
   });
+
   final String label;
   final IconData icon;
   final Color color;
@@ -422,32 +486,42 @@ class MenuTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: context.card,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: context.border),
+          border: Border.all(color: context.border, width: 0.5),
+          boxShadow: context.isDark
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 36,
-              height: 36,
+              width: 38,
+              height: 38,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.13),
-                borderRadius: BorderRadius.circular(10),
+                color: color.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(11),
               ),
-              child: Icon(icon, size: 19, color: color),
+              child: Icon(icon, size: 20, color: color),
             ),
-            const SizedBox(height: 5),
+            const SizedBox(height: 6),
             Text(
               label,
               maxLines: 2,
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 10.5,
                 fontWeight: FontWeight.w600,
+                letterSpacing: -0.2,
                 color: context.textPrimary,
-                height: 1.1,
+                height: 1.15,
               ),
             ),
           ],
@@ -457,28 +531,36 @@ class MenuTile extends StatelessWidget {
   }
 }
 
-/// InputDecoration konsisten untuk seluruh form.
-InputDecoration appInput(BuildContext context, String label,
-    {IconData? icon, Widget? suffix}) {
-  OutlineInputBorder border([Color? c, double w = 1]) => OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+/// InputDecoration bergaya iOS textfield.
+InputDecoration appInput(
+  BuildContext context,
+  String label, {
+  IconData? icon,
+  Widget? suffix,
+}) {
+  OutlineInputBorder border([Color? c, double w = 0.5]) => OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: c ?? context.border, width: w),
       );
+
   return InputDecoration(
     labelText: label,
-    labelStyle: TextStyle(color: context.textMuted, fontSize: 13.5),
+    labelStyle: TextStyle(
+      color: context.textMuted,
+      fontSize: 13.5,
+      fontWeight: FontWeight.w400,
+    ),
     prefixIcon:
-        icon != null ? Icon(icon, size: 20, color: context.textMuted) : null,
+        icon != null ? Icon(icon, size: 19, color: context.textMuted) : null,
     suffixIcon: suffix,
     filled: true,
     fillColor: context.isDark
-        ? Colors.white.withOpacity(0.05)
-        : const Color(0xFFF5F7FC),
-    contentPadding:
-        const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        ? const Color(0xFF1C1C1E)
+        : Colors.white,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
     border: border(),
     enabledBorder: border(),
-    focusedBorder: border(AppColors.indigo500, 1.6),
+    focusedBorder: border(AppColors.primaryYellow, 1.2),
   );
 }
 

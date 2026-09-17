@@ -191,7 +191,7 @@ class _KrsScreenState extends State<KrsScreen> {
     final bisaUbah = krsData['bisa_ubah'] == true || statusData['bisa_ubah'] == true;
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       children: [
         _statusCard(
           context,

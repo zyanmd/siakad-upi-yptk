@@ -1,3 +1,5 @@
+import 'dart:ui';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -9,7 +11,9 @@ import 'jadwal_screen.dart';
 import 'profil_screen.dart';
 import 'tagihan_screen.dart';
 
-/// Shell utama dengan bottom navigation: Beranda, Jadwal, Tagihan, Profil.
+/// Shell utama dengan Floating Capsule Navbar bergaya Dynamic Island iOS
+/// dilengkapi efek Frosted Glass (BackdropFilter blur), border hairline 0.5px,
+/// dan ikon Cupertino native.
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
 
@@ -30,8 +34,7 @@ class _MainShellState extends State<MainShell> {
       _auth!.addListener(_onAuthChanged);
       context.read<PeriodeProvider>().ensureLoaded();
       if (!_auth!.isAuthed) {
-        Navigator.of(context)
-            .pushReplacementNamed('/login');
+        Navigator.of(context).pushReplacementNamed('/login');
       }
     });
   }
@@ -52,6 +55,8 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = context.isDark;
+
     final pages = [
       const DashboardScreen(),
       const JadwalScreen(),
@@ -59,36 +64,134 @@ class _MainShellState extends State<MainShell> {
       const ProfilScreen(),
     ];
 
+    final navItems = [
+      (
+        label: 'Beranda',
+        selectedIcon: CupertinoIcons.house_fill,
+        unselectedIcon: CupertinoIcons.house,
+      ),
+      (
+        label: 'Jadwal',
+        selectedIcon: CupertinoIcons.calendar,
+        unselectedIcon: CupertinoIcons.calendar_today,
+      ),
+      (
+        label: 'Tagihan',
+        selectedIcon: CupertinoIcons.creditcard_fill,
+        unselectedIcon: CupertinoIcons.creditcard,
+      ),
+      (
+        label: 'Profil',
+        selectedIcon: CupertinoIcons.person_crop_circle_fill,
+        unselectedIcon: CupertinoIcons.person_crop_circle,
+      ),
+    ];
+
     return Scaffold(
       backgroundColor: context.bg,
+      extendBody: true,
       body: IndexedStack(index: _index, children: pages),
-      bottomNavigationBar: NavigationBar(
-        height: 80,
-        selectedIndex: _index,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded),
-            label: 'Beranda',
+      bottomNavigationBar: SafeArea(
+        bottom: true,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(34),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+              child: Container(
+                height: 64,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? const Color(0xCC1C1C1E)
+                      : const Color(0xDDFFFFFF),
+                  borderRadius: BorderRadius.circular(34),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.14)
+                        : Colors.black.withValues(alpha: 0.08),
+                    width: 0.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+                      blurRadius: 20,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: Row(
+                  children: [
+                    for (int i = 0; i < navItems.length; i++)
+                      Expanded(
+                        child: _buildNavItem(
+                          index: i,
+                          label: navItems[i].label,
+                          selectedIcon: navItems[i].selectedIcon,
+                          unselectedIcon: navItems[i].unselectedIcon,
+                          isSelected: _index == i,
+                          isDark: isDark,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.calendar_month_outlined),
-            selectedIcon: Icon(Icons.calendar_month_rounded),
-            label: 'Jadwal',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long_rounded),
-            label: 'Tagihan',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline_rounded),
-            selectedIcon: Icon(Icons.person_rounded),
-            label: 'Profil',
-          ),
-        ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem({
+    required int index,
+    required String label,
+    required IconData selectedIcon,
+    required IconData unselectedIcon,
+    required bool isSelected,
+    required bool isDark,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        if (_index != index) {
+          setState(() => _index = index);
+        }
+      },
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeInOutCubic,
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primaryYellow : Colors.transparent,
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isSelected ? selectedIcon : unselectedIcon,
+              size: 20,
+              color: isSelected
+                  ? const Color(0xFF1C1917)
+                  : (isDark ? const Color(0xFF8E8E93) : const Color(0xFF636366)),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                letterSpacing: -0.2,
+                color: isSelected
+                    ? const Color(0xFF1C1917)
+                    : (isDark ? const Color(0xFF8E8E93) : const Color(0xFF636366)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,10 +1,11 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../state/auth_provider.dart';
 import '../theme/app_theme.dart';
 
-/// Splash: cek sesi tersimpan lalu arahkan ke Beranda atau Login.
+/// Splash: cek sesi tersimpan lalu arahkan ke Beranda atau Login bergaya iOS Launch.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -21,7 +22,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _route() async {
     final auth = context.read<AuthProvider>();
-    await Future.delayed(const Duration(milliseconds: 800));
+    await Future.delayed(const Duration(milliseconds: 700));
     await auth.bootstrap();
     if (!mounted) return;
     Navigator.of(context)
@@ -31,95 +32,82 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: AppColors.headerGradient,
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: Stack(
+      backgroundColor: context.bg,
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Positioned(
-              right: -50,
-              top: 90,
-              child: Container(
-                width: 170,
-                height: 170,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.amber.withOpacity(0.13),
+            Container(
+              width: 88,
+              height: 88,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: AppColors.logoGradient,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-              ),
-            ),
-            Positioned(
-              left: -40,
-              bottom: 60,
-              child: Container(
-                width: 140,
-                height: 140,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.05),
-                ),
-              ),
-            ),
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 92,
-                    height: 92,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: AppColors.logoGradient,
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(26),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.amber.withOpacity(0.35),
-                          blurRadius: 28,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(Icons.school_rounded,
-                        size: 46, color: AppColors.indigo950),
-                  ),
-                  const SizedBox(height: 22),
-                  const Text(
-                    'SIAKAD UPI YPTK',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.1,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Sistem Informasi Akademik',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.75),
-                      fontSize: 13.5,
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-                  const SizedBox(
-                    width: 26,
-                    height: 26,
-                    child: CircularProgressIndicator(
-                      color: AppColors.amber,
-                      strokeWidth: 2.6,
-                    ),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primaryYellow.withValues(alpha: 0.35),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
                   ),
                 ],
               ),
+              child: const Icon(
+                Icons.school_rounded,
+                size: 46,
+                color: Color(0xFF1C1917),
+              ),
             ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'SIAKAD',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.6,
+                    color: context.textPrimary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryYellow.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(7),
+                    border: Border.all(
+                      color: AppColors.primaryYellow.withValues(alpha: 0.6),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: const Text(
+                    'UNOFFICIAL',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                      color: Color(0xFFD4A30A),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Sistem Informasi Akademik Mahasiswa',
+              style: TextStyle(
+                color: context.textMuted,
+                fontSize: 13,
+                letterSpacing: -0.2,
+              ),
+            ),
+            const SizedBox(height: 38),
+            const CupertinoActivityIndicator(radius: 12),
           ],
         ),
       ),

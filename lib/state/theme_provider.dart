@@ -44,6 +44,14 @@ class ThemeProvider extends ChangeNotifier {
     notifyListeners();
     await _store.saveThemeMode(m.name);
   }
+
+  Future<void> toggleTheme() async {
+    if (_mode == AppThemeMode.dark) {
+      await setMode(AppThemeMode.light);
+    } else {
+      await setMode(AppThemeMode.dark);
+    }
+  }
 }
 
 /// Widget kecil untuk menampilkan pilihan tema (dipakai di halaman Profil).

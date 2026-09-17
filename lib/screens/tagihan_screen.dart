@@ -184,7 +184,7 @@ class _TagihanTabState extends State<_TagihanTab>
             await _future;
           },
           child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 96),
             children: [
               // 1. Hero Ringkasan Tagihan & Status Akun
               _buildHeroSummaryCard(

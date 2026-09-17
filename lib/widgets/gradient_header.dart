@@ -1,8 +1,9 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
-/// Header gradien indigo dengan ornamen kuning ala SIAKAD modern.
+/// Header navigasi bergaya iOS modern dengan border hairline dan tipografi bersih.
 class GradientHeader extends StatelessWidget {
   const GradientHeader({
     super.key,
@@ -26,100 +27,76 @@ class GradientHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final radius = roundBottom
-        ? const BorderRadius.vertical(bottom: Radius.circular(24))
+        ? const BorderRadius.vertical(bottom: Radius.circular(20))
         : BorderRadius.zero;
 
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: AppColors.headerGradient,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+        color: context.card,
+        borderRadius: radius,
+        border: Border(
+          bottom: BorderSide(
+            color: context.border,
+            width: 0.5,
+          ),
         ),
-        borderRadius: radius,
       ),
-      child: ClipRRect(
-        borderRadius: radius,
-        child: Stack(
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Ornamen dekoratif
-            Positioned(
-              right: -30,
-              top: -34,
-              child: Container(
-                width: 130,
-                height: 130,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.amber.withOpacity(0.14),
-                ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                leading != null ? 4 : 16,
+                8,
+                8,
+                tall ? 14 : 10,
               ),
-            ),
-            Positioned(
-              right: 56,
-              bottom: -46,
-              child: Container(
-                width: 96,
-                height: 96,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.06),
-                ),
-              ),
-            ),
-            SafeArea(
-              bottom: false,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(
-                        leading != null ? 6 : 18, 10, 6, tall ? 16 : 13),
-                    child: Row(
+                  if (leading != null) leading!,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (leading != null) leading!,
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              if (subtitle != null) ...[
-                                const SizedBox(height: 2),
-                                Text(
-                                  subtitle!,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.72),
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ],
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: context.textPrimary,
+                            fontSize: 17.5,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.4,
                           ),
                         ),
-                        if (actions != null) ...actions!,
+                        if (subtitle != null) ...[
+                          const SizedBox(height: 1.5),
+                          Text(
+                            subtitle!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: context.textMuted,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
-                  if (bottom != null)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 0, 18, 14),
-                      child: bottom!,
-                    ),
+                  if (actions != null) ...actions!,
                 ],
               ),
             ),
+            if (bottom != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: bottom!,
+              ),
           ],
         ),
       ),
@@ -127,27 +104,34 @@ class GradientHeader extends StatelessWidget {
   }
 }
 
-/// Tombol kembali bulat transparan untuk dipakai di dalam header.
+/// Tombol kembali bergaya chevron iOS.
 class HeaderBackButton extends StatelessWidget {
   const HeaderBackButton({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 4),
-      child: IconButton(
-        onPressed: () => Navigator.of(context).maybePop(),
-        icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-        tooltip: 'Kembali',
+    return IconButton(
+      onPressed: () => Navigator.of(context).maybePop(),
+      icon: Icon(
+        CupertinoIcons.chevron_back,
+        color: context.textPrimary,
+        size: 24,
       ),
+      tooltip: 'Kembali',
+      splashRadius: 20,
     );
   }
 }
 
-/// Tombol aksi ikon bulat transparan di header.
+/// Tombol aksi ikon di header ala iOS.
 class HeaderActionButton extends StatelessWidget {
-  const HeaderActionButton(
-      {super.key, required this.icon, this.onPressed, this.tooltip});
+  const HeaderActionButton({
+    super.key,
+    required this.icon,
+    this.onPressed,
+    this.tooltip,
+  });
+
   final IconData icon;
   final VoidCallback? onPressed;
   final String? tooltip;
@@ -156,8 +140,9 @@ class HeaderActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton(
       onPressed: onPressed,
-      icon: Icon(icon, color: Colors.white, size: 21),
+      icon: Icon(icon, color: context.textPrimary, size: 21),
       tooltip: tooltip,
+      splashRadius: 20,
     );
   }
 }

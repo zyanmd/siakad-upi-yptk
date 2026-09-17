@@ -1,15 +1,14 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../config/api_config.dart';
 import '../services/api_client.dart';
 import '../services/session_store.dart';
 import '../state/auth_provider.dart';
 import '../state/theme_provider.dart';
 import '../theme/app_theme.dart';
-import '../widgets/common.dart';
 
-/// Halaman login: NIM + password SIAKAD.
+/// Halaman login bergaya iOS Sign-In bersih dan modern.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -34,7 +33,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       final auth = context.read<AuthProvider>();
       if (auth.expired) {
-        setState(() => _error = 'Sesi Anda berakhir. Silakan login kembali.');
+        setState(() => _error = 'Sesi Anda berakhir. Silakan masuk kembali.');
         auth.expired = false;
       }
     });
@@ -70,7 +69,7 @@ class _LoginScreenState extends State<LoginScreen> {
       });
     } catch (e) {
       setState(() {
-        _error = 'Terjadi kesalahan. Periksa koneksi lalu coba lagi.';
+        _error = 'Terjadi kesalahan jaringan. Coba lagi.';
         _loading = false;
       });
     }
@@ -78,236 +77,324 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = context.isDark;
+
     return Scaffold(
       backgroundColor: context.bg,
-      body: SingleChildScrollView(
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        child: Column(
-          children: [
-            // ---------- Bagian gradien atas ----------
-            Container(
-              width: double.infinity,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: AppColors.headerGradient,
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius:
-                    BorderRadius.vertical(bottom: Radius.circular(30)),
-              ),
-              child: Stack(
-                children: [
-                  Positioned(
-                    right: -40,
-                    top: 30,
-                    child: Container(
-                      width: 150,
-                      height: 150,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppColors.amber.withOpacity(0.13),
-                      ),
-                    ),
-                  ),
-                  SafeArea(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 40, 24, 74),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: IntrinsicHeight(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Bar atas: Tombol Switcher Tema minimalis di pojok kanan (tidak mengganggu)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
-                            children: [
-                              Container(
-                                width: 60,
-                                height: 60,
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: AppColors.logoGradient,
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                  borderRadius: BorderRadius.circular(18),
+                          IconButton(
+                            onPressed: () =>
+                                context.read<ThemeProvider>().toggleTheme(),
+                            tooltip: isDark ? 'Mode Terang' : 'Mode Gelap',
+                            icon: Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: context.card,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: context.border,
+                                  width: 0.5,
                                 ),
-                                child: const Icon(Icons.school_rounded,
-                                    size: 31, color: AppColors.indigo950),
                               ),
-                              const ThemeModeSwitcher(),
-                            ],
-                          ),
-                          const SizedBox(height: 22),
-                          const Text(
-                            'SIAKAD\nUPI YPTK',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 27,
-                              fontWeight: FontWeight.w900,
-                              height: 1.12,
-                              letterSpacing: 0.4,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Sistem Informasi Akademik Mahasiswa',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.75),
-                              fontSize: 13,
+                              child: Icon(
+                                isDark
+                                    ? CupertinoIcons.sun_max_fill
+                                    : CupertinoIcons.moon_stars_fill,
+                                size: 18,
+                                color: isDark
+                                    ? AppColors.primaryYellow
+                                    : const Color(0xFF1C1917),
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
 
-            // ---------- Kartu form ----------
-            Transform.translate(
-              offset: const Offset(0, -36),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Container(
-                  padding: const EdgeInsets.all(22),
-                  decoration: BoxDecoration(
-                    color: context.card,
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(color: context.border),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.06),
-                        blurRadius: 24,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Masuk',
-                        style: TextStyle(
-                            fontSize: 20, fontWeight: FontWeight.w800),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Gunakan NIM dan password SIAKAD Anda.',
-                        style: TextStyle(
-                            fontSize: 12.5, color: context.textMuted),
-                      ),
-                      if (_error != null) ...[
-                        const SizedBox(height: 14),
-                        Container(
-                          padding: const EdgeInsets.all(11),
+                      const SizedBox(height: 16),
+
+                      // Logo & Identitas Aplikasi Bergaya Apple Squircle
+                      Center(
+                        child: Container(
+                          width: 82,
+                          height: 82,
                           decoration: BoxDecoration(
-                            color: AppColors.red.withOpacity(0.08),
+                            gradient: const LinearGradient(
+                              colors: AppColors.logoGradient,
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(22),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primaryYellow.withValues(alpha: 0.35),
+                                blurRadius: 20,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.school_rounded,
+                            size: 44,
+                            color: Color(0xFF1C1917),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 22),
+
+                      // Judul & Badge
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'SIAKAD',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.6,
+                              color: context.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 2.5),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryYellow.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(7),
+                              border: Border.all(
+                                color: AppColors.primaryYellow.withValues(alpha: 0.6),
+                                width: 0.8,
+                              ),
+                            ),
+                            child: const Text(
+                              'UNOFFICIAL',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
+                                color: Color(0xFFD4A30A),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 6),
+                      Text(
+                        'Sistem Informasi Akademik Mahasiswa',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: context.textMuted,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+
+                      const SizedBox(height: 36),
+
+                      // Pesan Error jika ada
+                      if (_error != null) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: AppColors.red.withValues(alpha: 0.10),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                                color: AppColors.red.withOpacity(0.25)),
+                              color: AppColors.red.withValues(alpha: 0.25),
+                              width: 0.5,
+                            ),
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.error_outline_rounded,
-                                  size: 18, color: AppColors.red),
-                              const SizedBox(width: 9),
+                              const Icon(
+                                CupertinoIcons.exclamationmark_circle_fill,
+                                size: 16,
+                                color: AppColors.red,
+                              ),
+                              const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   _error!,
                                   style: const TextStyle(
-                                      fontSize: 12.5,
-                                      color: AppColors.red,
-                                      fontWeight: FontWeight.w600),
+                                    fontSize: 12.5,
+                                    color: AppColors.red,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
                             ],
                           ),
                         ),
+                        const SizedBox(height: 18),
                       ],
-                      const SizedBox(height: 18),
-                      TextField(
-                        controller: _nimCtrl,
-                        enabled: !_loading,
-                        keyboardType: TextInputType.text,
-                        textInputAction: TextInputAction.next,
-                        decoration: appInput(context, 'NIM',
-                            icon: Icons.badge_rounded),
-                      ),
-                      const SizedBox(height: 14),
-                      TextField(
-                        controller: _passCtrl,
-                        enabled: !_loading,
-                        obscureText: _obscure,
-                        textInputAction: TextInputAction.done,
-                        onSubmitted: (_) => _submit(),
-                        decoration: appInput(
-                          context,
-                          'Password',
-                          icon: Icons.lock_rounded,
-                          suffix: IconButton(
-                            onPressed: () =>
-                                setState(() => _obscure = !_obscure),
-                            icon: Icon(
-                              _obscure
-                                  ? Icons.visibility_off_rounded
-                                  : Icons.visibility_rounded,
-                              size: 20,
-                              color: context.textMuted,
-                            ),
+
+                      // Formulir Masuk: iOS Inset Grouped Section (NIM & Password dalam 1 wadah)
+                      Container(
+                        decoration: BoxDecoration(
+                          color: context.card,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: context.border,
+                            width: 0.5,
                           ),
                         ),
+                        child: Column(
+                          children: [
+                            // Input NIM
+                            TextField(
+                              controller: _nimCtrl,
+                              enabled: !_loading,
+                              keyboardType: TextInputType.text,
+                              textInputAction: TextInputAction.next,
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: context.textPrimary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'Nomor Induk Mahasiswa (NIM)',
+                                hintStyle: TextStyle(
+                                  color: context.textMuted,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                                prefixIcon: Icon(
+                                  CupertinoIcons.person_crop_square,
+                                  size: 20,
+                                  color: context.textMuted,
+                                ),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 15),
+                              ),
+                            ),
+
+                            // Garis pemisah hairline khas iOS Inset Grouped
+                            Divider(
+                              height: 0.5,
+                              thickness: 0.5,
+                              indent: 48,
+                              color: context.border,
+                            ),
+
+                            // Input Password
+                            TextField(
+                              controller: _passCtrl,
+                              enabled: !_loading,
+                              obscureText: _obscure,
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (_) => _submit(),
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: context.textPrimary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'Password SIAKAD',
+                                hintStyle: TextStyle(
+                                  color: context.textMuted,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                                prefixIcon: Icon(
+                                  CupertinoIcons.lock,
+                                  size: 20,
+                                  color: context.textMuted,
+                                ),
+                                suffixIcon: IconButton(
+                                  onPressed: () =>
+                                      setState(() => _obscure = !_obscure),
+                                  icon: Icon(
+                                    _obscure
+                                        ? CupertinoIcons.eye_slash
+                                        : CupertinoIcons.eye,
+                                    size: 19,
+                                    color: context.textMuted,
+                                  ),
+                                ),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 15),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 22),
+
+                      const SizedBox(height: 24),
+
+                      // Tombol Masuk Utama
                       SizedBox(
-                        width: double.infinity,
                         height: 50,
                         child: FilledButton(
                           onPressed: _loading ? null : _submit,
                           style: FilledButton.styleFrom(
-                            backgroundColor: AppColors.indigo700,
+                            backgroundColor: AppColors.primaryYellow,
+                            foregroundColor: const Color(0xFF1C1917),
+                            elevation: 0,
                             disabledBackgroundColor:
-                                AppColors.indigo700.withOpacity(0.65),
+                                AppColors.primaryYellow.withValues(alpha: 0.5),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14)),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
                           ),
                           child: _loading
-                              ? const SizedBox(
-                                  width: 21,
-                                  height: 21,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2.2,
-                                      color: Colors.white),
+                              ? const CupertinoActivityIndicator(
+                                  color: Color(0xFF1C1917),
+                                  radius: 10,
                                 )
                               : const Text(
-                                  'Login',
+                                  'Masuk',
                                   style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w800),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.3,
+                                    color: Color(0xFF1C1917),
+                                  ),
                                 ),
                         ),
                       ),
-                      const SizedBox(height: 14),
-                      Center(
+
+                      const Spacer(),
+
+                      // Footer iOS Footnote
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 18),
                         child: Text(
-                          'Terhubung ke ${ApiConfig.baseUrl}',
+                          'SIAKAD UNOFFICIAL • v1.0.0',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                              fontSize: 10.5, color: context.textMuted),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: context.textMuted,
+                            letterSpacing: -0.2,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              'v1.0.0 - SIAKAD UPI YPTK Scraper API',
-              style: TextStyle(fontSize: 10.5, color: context.textMuted),
-            ),
-            const SizedBox(height: 24),
-          ],
+            );
+          },
         ),
       ),
     );

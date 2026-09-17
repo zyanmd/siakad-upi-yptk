@@ -198,7 +198,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
         '';
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       children: [
         // ============================================================
         // 1. HEADER CARD: Dropdown Periode & Metrik Jadwal
