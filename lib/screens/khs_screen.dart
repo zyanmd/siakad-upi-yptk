@@ -33,6 +33,7 @@ class _KhsScreenState extends State<KhsScreen> {
   String _searchQuery = '';
   String _selectedGradeFilter = 'all'; // all, A, B, C, etc.
   Map<String, dynamic>? _lastLoadedData;
+  bool _isLoadingSemester = false;
 
   @override
   void dispose() {
@@ -41,7 +42,8 @@ class _KhsScreenState extends State<KhsScreen> {
   }
 
   Future<Map<String, dynamic>> _load() async {
-    final api = context.read<ApiClient>();
+    try {
+      final api = context.read<ApiClient>();
 
     // 1. Ambil daftar periode KHS
     String? defaultSelectedId;
@@ -226,6 +228,13 @@ class _KhsScreenState extends State<KhsScreen> {
     final res = {'opts': _opts, 'data': khsPayload, 'periode': p};
     _lastLoadedData = khsPayload;
     return res;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingSemester = false;
+        });
+      }
+    }
   }
 
   void _bukaLembarCetak() {
@@ -382,7 +391,12 @@ class _KhsScreenState extends State<KhsScreen> {
         HeaderActionButton(
           icon: Icons.refresh_rounded,
           tooltip: 'Muat Ulang',
-          onPressed: () => _pageKey.currentState?.reload(),
+          onPressed: _isLoadingSemester
+              ? null
+              : () {
+                  setState(() => _isLoadingSemester = true);
+                  _pageKey.currentState?.reload();
+                },
         ),
       ],
       headerExtras: PillDropdown(
@@ -402,16 +416,83 @@ class _KhsScreenState extends State<KhsScreen> {
             ),
         ],
         onChanged: (v) {
+          if (_isLoadingSemester) return;
           if (v == null || v == _chosen) return;
           setState(() {
             _chosen = v;
             _searchQuery = '';
             _selectedGradeFilter = 'all';
+            _isLoadingSemester = true;
           });
           _pageKey.currentState?.reload();
         },
       ),
-      builder: (context, data) => _buildContent(context, data),
+      builder: (context, data) {
+        if (_isLoadingSemester) {
+          final selectedLabel = _opts
+              .firstWhere(
+                (o) => o.value == _chosen,
+                orElse: () => PeriodeOption(value: '', label: _chosen ?? ''),
+              )
+              .label;
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 64),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.amber.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const SizedBox(
+                      width: 34,
+                      height: 34,
+                      child: CircularProgressIndicator(
+                        color: AppColors.upiYellowDeep,
+                        strokeWidth: 3,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    'Memuat KHS...',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: context.textPrimary,
+                    ),
+                  ),
+                  if (selectedLabel.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      selectedLabel,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.upiYellowDeep,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 6),
+                  Text(
+                    'Mengambil daftar nilai dan prestasi akademik',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: context.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        return _buildContent(context, data);
+      },
     );
   }
 

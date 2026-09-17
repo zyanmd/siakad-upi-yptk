@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'screens/download_screen.dart';
+import 'screens/foto_ijazah_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
 import 'screens/profil_akademik_screen.dart';
@@ -55,6 +57,8 @@ class SiakadApp extends StatelessWidget {
               '/login': (_) => const LoginScreen(),
               '/home': (_) => const MainShell(),
               '/profil-akademik': (_) => const ProfilAkademikScreen(),
+              '/download': (_) => const DownloadScreen(),
+              '/foto-ijazah': (_) => const FotoIjazahScreen(),
             },
           );
         },

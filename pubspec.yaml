@@ -17,6 +17,7 @@ dependencies:
   printing: ^5.15.0
   pdf: ^3.11.1
   flutter_widget_from_html: ^0.17.4
+  image_picker: ^1.2.3
 
 dev_dependencies:
   flutter_test:

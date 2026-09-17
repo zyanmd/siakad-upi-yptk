@@ -8,7 +8,10 @@ import '../theme/app_theme.dart';
 import '../utils/format.dart';
 import '../utils/smart.dart';
 import '../widgets/common.dart';
+import 'download_screen.dart';
+import 'foto_ijazah_screen.dart';
 import 'jadwal_screen.dart';
+import 'kalender_screen.dart';
 import 'kartu_ujian_screen.dart';
 import 'khs_screen.dart';
 import 'krs_screen.dart';
@@ -690,10 +693,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
         page: const TranskripScreen()
       ),
       (
+        label: 'Kalender',
+        icon: Icons.event_note_rounded,
+        color: Colors.teal,
+        page: const KalenderScreen()
+      ),
+      (
+        label: 'Download',
+        icon: Icons.cloud_download_rounded,
+        color: Colors.blueAccent,
+        page: const DownloadScreen()
+      ),
+      (
         label: 'Profil Akd',
         icon: Icons.school_rounded,
         color: AppColors.upiYellowDark,
         page: const ProfilAkademikScreen()
+      ),
+      (
+        label: 'Foto Ijazah',
+        icon: Icons.account_box_rounded,
+        color: Colors.redAccent,
+        page: const FotoIjazahScreen()
       ),
     ];
 

@@ -140,17 +140,77 @@ class AkademikService {
   Future<dynamic> transkripCetakUrl() =>
       _api.get('/api/akademik/transkrip/cetak-url');
 
+  Future<dynamic> transkripCetak() =>
+      _api.get('/api/akademik/transkrip/cetak');
+
   // ---------------------------------------------------------- Kalender
 
-  Future<dynamic> kalender(String tahun) =>
-      _api.get('/api/akademik/kalender', query: {'tahun': tahun});
+  Future<dynamic> kalender(String tahun, {String? q}) =>
+      _api.get('/api/akademik/kalender', query: {
+        'tahun': tahun,
+        if (q != null && q.isNotEmpty) 'q': q,
+      });
 
-  Future<dynamic> kalenderData(String tahun) =>
-      _api.get('/api/akademik/kalender/data', query: {'tahun': tahun});
+  Future<dynamic> kalenderData(String tahun, {String? q}) =>
+      _api.get('/api/akademik/kalender/data', query: {
+        'tahun': tahun,
+        if (q != null && q.isNotEmpty) 'q': q,
+      });
 
-  Future<dynamic> kalenderDetail(String token) =>
-      _api.get('/api/akademik/kalender/detail/$token');
+  Future<dynamic> kalenderDetail(String token, {String? tahun, String? q}) =>
+      _api.get('/api/akademik/kalender/detail/$token', query: {
+        if (tahun != null && tahun.isNotEmpty) 'tahun': tahun,
+        if (q != null && q.isNotEmpty) 'q': q,
+      });
 
   Future<dynamic> kalenderCetakUrl(String token) =>
       _api.get('/api/akademik/kalender/cetak-url/$token');
+
+  Future<dynamic> kalenderCetak(String token) =>
+      _api.get('/api/akademik/kalender/cetak/$token');
+
+  // ---------------------------------------------------------- Download
+
+  Future<dynamic> download({String? q, String? kategori, int? page}) {
+    final query = <String, dynamic>{};
+    if (q != null && q.isNotEmpty) query['q'] = q;
+    if (kategori != null && kategori.isNotEmpty) query['kategori'] = kategori;
+    if (page != null && page > 0) query['page'] = page;
+    return _api.get('/api/akademik/download',
+        query: query.isNotEmpty ? query : null);
+  }
+
+  Future<dynamic> downloadData({String? q, String? kategori, int? page}) {
+    final query = <String, dynamic>{};
+    if (q != null && q.isNotEmpty) query['q'] = q;
+    if (kategori != null && kategori.isNotEmpty) query['kategori'] = kategori;
+    if (page != null && page > 0) query['page'] = page;
+    return _api.get('/api/akademik/download/data',
+        query: query.isNotEmpty ? query : null);
+  }
+
+  Future<dynamic> downloadKategori() =>
+      _api.get('/api/akademik/download/kategori');
+
+  Future<dynamic> downloadUrl(String fileId) {
+    String cleanId = fileId.trim();
+    if (cleanId.startsWith('http://') || cleanId.startsWith('https://')) {
+      final uri = Uri.tryParse(cleanId);
+      if (uri != null && uri.pathSegments.isNotEmpty) {
+        cleanId = uri.pathSegments.last;
+      }
+    }
+    return _api.get('/api/akademik/download/url/${Uri.encodeComponent(cleanId)}');
+  }
+
+  Future<List<int>> downloadFileBytes(String fileId) {
+    String cleanId = fileId.trim();
+    if (cleanId.startsWith('http://') || cleanId.startsWith('https://')) {
+      final uri = Uri.tryParse(cleanId);
+      if (uri != null && uri.pathSegments.isNotEmpty) {
+        cleanId = uri.pathSegments.last;
+      }
+    }
+    return _api.getBytes('/api/akademik/download/file/${Uri.encodeComponent(cleanId)}');
+  }
 }

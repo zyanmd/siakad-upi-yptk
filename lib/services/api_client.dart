@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 
 import '../config/api_config.dart';
@@ -83,6 +84,49 @@ class ApiClient {
     try {
       return _unwrap(
           await _dio.delete(path, data: body, queryParameters: query));
+    } catch (e) {
+      throw _wrapError(e);
+    }
+  }
+
+  Future<List<int>> getBytes(String path, {Map<String, dynamic>? query}) async {
+    try {
+      final resp = await _dio.get<List<int>>(
+        path,
+        queryParameters: query,
+        options: Options(
+          responseType: ResponseType.bytes,
+          followRedirects: true,
+        ),
+      );
+      final code = resp.statusCode ?? 0;
+      if (code == 401) {
+        onUnauthorized?.call();
+        throw ApiException('Sesi berakhir. Silakan login kembali.',
+            statusCode: 401, isAuthError: true);
+      }
+      if (code >= 400) {
+        throw ApiException('Permintaan unduh gagal (HTTP $code).',
+            statusCode: code);
+      }
+      final data = resp.data ?? <int>[];
+      final contentType = resp.headers.value('content-type') ?? '';
+      if (contentType.contains('application/json') ||
+          (data.isNotEmpty && data.first == 0x7B /* '{' */)) {
+        try {
+          final str = utf8.decode(data);
+          final jsonMap = jsonDecode(str);
+          if (jsonMap is Map) {
+            final msg = _msgOf(jsonMap);
+            if (jsonMap['success'] == false || msg != null) {
+              throw ApiException(msg ?? 'Gagal mengunduh berkas.');
+            }
+          }
+        } catch (e) {
+          if (e is ApiException) rethrow;
+        }
+      }
+      return data;
     } catch (e) {
       throw _wrapError(e);
     }
