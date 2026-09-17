@@ -26,7 +26,6 @@ class _JadwalScreenState extends State<JadwalScreen> {
   PeriodeProvider? _pp;
   String? _selectedPeriode;
   List<PeriodeOption> _periodeOpts = [];
-  Map<String, dynamic>? _lastData;
 
   @override
   void initState() {
@@ -74,7 +73,6 @@ class _JadwalScreenState extends State<JadwalScreen> {
     final resp = await api.get('/api/akademik/jadwal', query: {'periode': p});
     final data = resp is Map ? (resp['data'] ?? resp) : resp;
     final mapData = asMap(data);
-    _lastData = mapData;
 
     // Ekstrak periode_tersedia jika dikembalikan oleh backend
     if (mapData['periode_tersedia'] is List) {
@@ -589,7 +587,6 @@ class _SessionCard extends StatelessWidget {
     final kelas = pickString(item, ['kelas', 'nama_kelas'], '');
     final dosen = pickString(item, ['dosen', 'nama_dosen', 'pengajar'], '');
     final info = pickString(item, ['info'], '');
-    final status = pickString(item, ['status'], 'Disetujui');
     final metodeDetail = pickString(item, ['metode_detail', 'metode'], '');
     final waUrl = pickString(item, ['whatsapp_url', 'wa_url', 'link_wa'], '');
     final token = detailTokenOf(item);

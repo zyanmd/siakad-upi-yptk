@@ -448,6 +448,17 @@ class _PresensiScreenState extends State<PresensiScreen> {
               ),
             ],
           ),
+          if (rataKehadiranDesc.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              '* $rataKehadiranDesc',
+              style: TextStyle(
+                fontSize: 10.5,
+                fontStyle: FontStyle.italic,
+                color: context.textMuted,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -725,12 +736,6 @@ class _PresensiCard extends StatelessWidget {
     final persenRaw = pickString(item, ['kehadiran', 'persen'], '0%');
     final persen = double.tryParse(persenRaw.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0;
 
-    final counts = asMap(item['counts']);
-    final hadir = pickString(counts, ['0Hadir', 'hadir'], '');
-    final alpa = pickString(counts, ['0Alpa', 'alpa'], '');
-    final izin = pickString(counts, ['0Izin', 'izin'], '');
-    final sakit = pickString(counts, ['0Sakit', 'sakit'], '');
-
     // Resolusi warna status progres
     final stLower = statusLabel.toLowerCase();
     final Color statusColor;
@@ -888,11 +893,11 @@ class _PresensiCard extends StatelessWidget {
           // Baris Jadwal & Dosen & Arrow
           Row(
             children: [
-              if (hari.isNotEmpty || jam.isNotEmpty) ...[
+              if (hari.isNotEmpty || jam.isNotEmpty || ruang.isNotEmpty) ...[
                 Icon(Icons.schedule_rounded, size: 13, color: context.textMuted),
                 const SizedBox(width: 4),
                 Text(
-                  [hari, jam].where((s) => s.isNotEmpty).join(' • '),
+                  [hari, jam, if (ruang.isNotEmpty) 'R. $ruang'].where((s) => s.isNotEmpty).join(' • '),
                   style: TextStyle(fontSize: 11, color: context.textMuted),
                 ),
                 const SizedBox(width: 10),
