@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "886453976227",
+    "project_id": "siakad-c74d0",
+    "storage_bucket": "siakad-c74d0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:886453976227:android:8c1494cbd29f3cff2e1316",
+        "android_client_info": {
+          "package_name": "com.upi.yptk"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDMmg39yYC4O2jgesYNXKv_LZ_0_JReYxY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

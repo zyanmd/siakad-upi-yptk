@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../config/api_config.dart';
 import 'session_store.dart';
@@ -25,7 +26,15 @@ class ApiClient {
         baseUrl: ApiConfig.baseUrl,
         connectTimeout: ApiConfig.connectTimeout,
         receiveTimeout: ApiConfig.receiveTimeout,
-        headers: {'Accept': 'application/json'},
+        headers: {
+          'Accept': 'application/json',
+          // Header User-Agent dilarang (forbidden header) di browser.
+          // Hanya dikirim pada platform non-web agar tidak menggagalkan
+          // request / memicu preflight CORS saat berjalan di Chrome.
+          if (!kIsWeb)
+            'User-Agent':
+                'Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36 SiakadApp/1.0',
+        },
         // Biarkan 4xx masuk sebagai respons biasa supaya pesan error
         // dari server bisa dibaca, 5xx tetap jadi DioException.
         validateStatus: (code) => code != null && code < 500,
@@ -39,6 +48,28 @@ class ApiClient {
             options.headers[ApiConfig.sessionHeader] = sid;
           }
           handler.next(options);
+        },
+        onError: (DioException error, handler) async {
+          final statusCode = error.response?.statusCode;
+          final extra = error.requestOptions.extra;
+          final retryCount = (extra['retry_count'] as int?) ?? 0;
+
+          // Jika server 502 / 503 / 504 (LiteSpeed / Passenger cold start atau busy),
+          // lakukan retry otomatis 1x setelah 1.2 detik agar pengguna tidak terganggu.
+          if ((statusCode == 500 || statusCode == 502 || statusCode == 503 || statusCode == 504 || statusCode == 522) &&
+              retryCount < 2) {
+            extra['retry_count'] = retryCount + 1;
+            await Future.delayed(const Duration(milliseconds: 1500));
+            try {
+              final response = await _dio.fetch(error.requestOptions);
+              return handler.resolve(response);
+            } catch (e) {
+              if (e is DioException) {
+                return handler.next(e);
+              }
+            }
+          }
+          handler.next(error);
         },
       ),
     );
@@ -118,6 +149,13 @@ class ApiClient {
           final jsonMap = jsonDecode(str);
           if (jsonMap is Map) {
             final msg = _msgOf(jsonMap);
+            if (_isSessionExpiredMessage(msg)) {
+              onUnauthorized?.call();
+              throw ApiException(
+                  msg ?? 'Sesi berakhir. Silakan login kembali.',
+                  statusCode: 401,
+                  isAuthError: true);
+            }
             if (jsonMap['success'] == false || msg != null) {
               throw ApiException(msg ?? 'Gagal mengunduh berkas.');
             }
@@ -134,19 +172,33 @@ class ApiClient {
 
   // ------------------------------------------------------------ helper
 
+  bool _isSessionExpiredMessage(String? msg) {
+    if (msg == null || msg.trim().isEmpty) return false;
+    final lower = msg.toLowerCase();
+    return lower.contains('session tidak valid') ||
+        lower.contains('sesi berakhir') ||
+        lower.contains('sesi habis') ||
+        lower.contains('kadaluarsa') ||
+        lower.contains('login ulang') ||
+        lower.contains('session rusak') ||
+        lower.contains('x-session-id wajib') ||
+        lower.contains('unauthorized');
+  }
+
   dynamic _unwrap(Response resp) {
     final code = resp.statusCode ?? 0;
     final data = resp.data;
+    final msg = _msgOf(data);
 
-    if (code == 401) {
-      final msg =
-          _msgOf(data) ?? 'Sesi berakhir. Silakan login kembali.';
+    if (code == 401 ||
+        (data is Map && data['success'] == false && _isSessionExpiredMessage(msg))) {
+      final text = msg ?? 'Sesi berakhir. Silakan login kembali.';
       onUnauthorized?.call();
-      throw ApiException(msg, statusCode: 401, isAuthError: true);
+      throw ApiException(text, statusCode: 401, isAuthError: true);
     }
     if (code >= 400) {
       throw ApiException(
-        _msgOf(data) ?? 'Permintaan gagal (HTTP $code).',
+        msg ?? 'Permintaan gagal (HTTP $code).',
         statusCode: code,
       );
     }
@@ -169,12 +221,25 @@ class ApiClient {
       final resp = e.response;
       if (resp != null) {
         final code = resp.statusCode ?? 0;
-        if (code == 401) {
+        final msg = _msgOf(resp.data);
+        if (code == 401 || _isSessionExpiredMessage(msg)) {
           onUnauthorized?.call();
           return ApiException(
-            _msgOf(resp.data) ?? 'Sesi berakhir. Silakan login kembali.',
+            msg ?? 'Sesi berakhir. Silakan login kembali.',
             statusCode: 401,
             isAuthError: true,
+          );
+        }
+        if (code == 503) {
+          return ApiException(
+            msg ?? 'Server SIAKAD sedang sibuk atau sedang memuat ulang proses (HTTP 503). Silakan coba sesaat lagi.',
+            statusCode: 503,
+          );
+        }
+        if (code == 502 || code == 504 || code == 522) {
+          return ApiException(
+            msg ?? 'Koneksi ke gateway SIAKAD kampus timeout / terputus (HTTP $code). Silakan coba lagi.',
+            statusCode: code,
           );
         }
         return ApiException(
@@ -191,9 +256,14 @@ class ApiClient {
         case DioExceptionType.cancel:
           return ApiException('Permintaan dibatalkan.');
         default:
+          // Di browser (web), kegagalan koneksi hampir selalu karena
+          // permintaan diblokir CORS oleh server, bukan karena internet.
+          if (kIsWeb) {
+            return ApiException(
+                'Permintaan diblokir oleh browser (CORS). Server belum mengizinkan akses dari aplikasi web ini. Hubungi pengembang backend untuk mengaktifkan header CORS.');
+          }
           return ApiException(
-              'Tidak dapat terhubung ke server. Periksa koneksi internet '
-              'atau pastikan API aktif di ${ApiConfig.baseUrl}.');
+              'Tidak dapat terhubung ke server. Periksa koneksi internet Anda lalu coba lagi.');
       }
     }
     return ApiException('Terjadi kesalahan yang tidak diketahui.');

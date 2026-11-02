@@ -5,30 +5,44 @@ import 'package:provider/provider.dart';
 import '../services/api_client.dart';
 import '../theme/app_theme.dart';
 import '../utils/smart.dart';
-import '../widgets/async_page.dart';
 import '../widgets/common.dart';
+
+// ── UPI YPTK Golden Yellow Gradient ──
+const _yellowHeaderGradient = [
+  Color(0xFFE5A620), // Bright Academic Gold
+  Color(0xFFD48B08), // UPI Yellow
+  Color(0xFFB87500), // Deep Academic Gold
+];
 
 /// Halaman Panduan Kurikulum:
 /// Menampilkan struktur kurikulum, ringkasan SKS, status kelulusan mata kuliah,
 /// serta filter interaktif berdasarkan semester dan status (Sudah/Sedang/Belum diambil).
-class KurikulumScreen extends StatelessWidget {
+class KurikulumScreen extends StatefulWidget {
   const KurikulumScreen({super.key, required this.periode});
 
   final String periode;
 
   @override
-  Widget build(BuildContext context) {
-    return AsyncPage<dynamic>(
-      title: 'Panduan Kurikulum',
-      subtitle: 'Struktur kurikulum & status mata kuliah',
-      load: () => context
-          .read<ApiClient>()
-          .get('/api/akademik/krs/kurikulum', query: {'periode': periode}),
-      builder: (context, data) {
-        final normalized = _normalizeKurikulumData(data);
-        return KurikulumDetailView(data: normalized);
-      },
-    );
+  State<KurikulumScreen> createState() => _KurikulumScreenState();
+}
+
+class _KurikulumScreenState extends State<KurikulumScreen> {
+  late Future<dynamic> _future;
+  dynamic _cachedData;
+
+  @override
+  void initState() {
+    super.initState();
+    _reload();
+  }
+
+  void _reload() {
+    setState(() {
+      _future = context.read<ApiClient>().get(
+            '/api/akademik/krs/kurikulum',
+            query: {'periode': widget.periode},
+          );
+    });
   }
 
   static Map<String, dynamic> _normalizeKurikulumData(dynamic data) {
@@ -42,6 +56,214 @@ class KurikulumScreen extends StatelessWidget {
       m.addAll(inner);
     }
     return m;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = context.isDark;
+    final bg = isDark ? const Color(0xFF000000) : const Color(0xFFF9FAFB);
+
+    final previewMap = _normalizeKurikulumData(_cachedData);
+    final info = asMap(previewMap['info']);
+    final kurikulumName = pickString(
+      info,
+      ['kurikulum', 'nama_kurikulum', 'nama'],
+      'Kurikulum Akademik',
+    );
+    final prodi = pickString(info, ['prodi', 'program_studi', 'jurusan'], '');
+
+    return Scaffold(
+      backgroundColor: bg,
+      body: Column(
+        children: [
+          // ──── HEADER KUNING DENGAN LEKUKAN BERSAMBUNG ────
+          _buildCurvedHeader(context, kurikulumName, prodi),
+
+          // ──── BODY KONTEN KURIKULUM ────
+          Expanded(
+            child: FutureBuilder<dynamic>(
+              future: _future,
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting &&
+                    _cachedData == null) {
+                  return const Center(
+                    child: LoadingView(label: 'Memuat struktur kurikulum...'),
+                  );
+                }
+                if (snap.hasError && _cachedData == null) {
+                  return ErrorRetry(
+                    message: errorText(snap.error!),
+                    onRetry: _reload,
+                  );
+                }
+                if (snap.hasData) {
+                  _cachedData = snap.data;
+                }
+                if (_cachedData == null) {
+                  return const EmptyView(message: 'Data kurikulum tidak ditemukan');
+                }
+
+                final normalized = _normalizeKurikulumData(_cachedData);
+                return RefreshIndicator(
+                  color: AppColors.upiYellowDeep,
+                  backgroundColor:
+                      isDark ? const Color(0xFF1E1E22) : Colors.white,
+                  onRefresh: () async {
+                    _reload();
+                    await _future;
+                  },
+                  child: KurikulumDetailView(data: normalized),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCurvedHeader(
+    BuildContext context,
+    String kurikulumName,
+    String prodi,
+  ) {
+    final canPop = Navigator.of(context).canPop();
+
+    return ClipPath(
+      clipper: const SeamlessWaveClipper(),
+      child: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: _yellowHeaderGradient,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 12, 22, kCurvedHeaderBottomPadding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (canPop) ...[
+                          IconButton(
+                            onPressed: () {
+                              Navigator.of(context).maybePop();
+                            },
+                            icon: const Icon(Icons.arrow_back_rounded,
+                                color: Colors.white, size: 24),
+                            tooltip: 'Kembali',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        const Text(
+                          'Panduan Kurikulum',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                    IosBounceTap(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        _reload();
+                        appToast(context, 'Memuat ulang kurikulum...');
+                      },
+                      child: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.22),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.10),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.refresh_rounded,
+                            size: 20, color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                Text(
+                  kurikulumName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 17.5,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.3,
+                    height: 1.25,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (prodi.isNotEmpty) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'Prodi $prodi',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.22),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        widget.periode,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -77,6 +299,48 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
       return int.tryParse(match.group(0)!) ?? fallback;
     }
     return fallback;
+  }
+
+  // ────────────────────────────────────────────────── NEUMORPHIC CARD HELPER
+  Widget _buildNeuCard({
+    required BuildContext context,
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
+    VoidCallback? onTap,
+  }) {
+    final isDark = context.isDark;
+    final content = Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF1F5F9),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.35)
+                : const Color(0xFF94A3B8).withValues(alpha: 0.12),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+          if (!isDark)
+            BoxShadow(
+              color: Colors.white.withValues(alpha: 0.9),
+              blurRadius: 10,
+              offset: const Offset(-2, -2),
+            ),
+        ],
+      ),
+      child: child,
+    );
+
+    if (onTap != null) {
+      return IosBounceTap(onTap: onTap, child: content);
+    }
+    return content;
   }
 
   @override
@@ -182,7 +446,7 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
     final percentInt = (progress * 100).round();
 
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 104),
       children: [
         // ============================================================
         // 1. HERO HEADER CARD: Kurikulum, Rekomendasi, & Progress
@@ -214,7 +478,7 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
         const SizedBox(height: 18),
 
         // ============================================================
-        // 3. SEARCH BAR
+        // 3. SEARCH BAR NEUMORPHIC
         // ============================================================
         _buildSearchBar(context),
 
@@ -254,12 +518,12 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
         ] else ...[
           // Tampilkan flat list dengan counter
           Padding(
-            padding: const EdgeInsets.only(left: 2, bottom: 10, top: 4),
+            padding: const EdgeInsets.only(left: 4, bottom: 10, top: 4),
             child: Text(
               'Menampilkan ${filteredCourses.length} mata kuliah',
               style: TextStyle(
                 fontSize: 12.5,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
                 color: context.textMuted,
               ),
             ),
@@ -269,6 +533,7 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
               mk: mk,
               parseNum: _parseNum,
               statusKind: _resolveStatusKind(mk),
+              neuCardBuilder: _buildNeuCard,
             ),
         ],
 
@@ -314,20 +579,9 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
     required int sudahDiambil,
     required int totalMk,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: context.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.upiYellowDeep.withValues(alpha: 0.3)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.upiYellowDeep.withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+    return _buildNeuCard(
+      context: context,
+      padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -340,15 +594,22 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [AppColors.upiYellowDeep, AppColors.amber],
+                    colors: [Color(0xFFFFF4D9), Color(0xFFFFE6A8)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.upiYellowDeep.withValues(alpha: 0.15),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
                 child: const Icon(
                   Icons.auto_stories_rounded,
-                  color: Colors.white,
+                  color: AppColors.upiYellowDeep,
                   size: 24,
                 ),
               ),
@@ -380,7 +641,6 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
                             decoration: BoxDecoration(
                               color: context.softFill,
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: context.border),
                             ),
                             child: Text(
                               'Prodi $prodi',
@@ -433,7 +693,7 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
           ),
 
           const SizedBox(height: 16),
-          const Divider(height: 1),
+          Divider(height: 1, color: context.border.withValues(alpha: 0.5)),
           const SizedBox(height: 14),
 
           // Progres Kelulusan
@@ -452,7 +712,7 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
                     'Progres Kelulusan MK',
                     style: TextStyle(
                       fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                       color: context.textPrimary,
                     ),
                   ),
@@ -473,10 +733,8 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
             borderRadius: BorderRadius.circular(6),
             child: LinearProgressIndicator(
               value: progress,
-              minHeight: 8,
-              backgroundColor: context.isDark
-                  ? Colors.white.withValues(alpha: 0.08)
-                  : const Color(0xFFE5E7EB),
+              minHeight: 7,
+              backgroundColor: context.softFill,
               valueColor: const AlwaysStoppedAnimation<Color>(AppColors.green),
             ),
           ),
@@ -544,24 +802,27 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
     required IconData icon,
     required Color color,
   }) {
+    final isDark = context.isDark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: context.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: context.border),
+        color: isDark ? const Color(0xFF222226) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2E2E32) : const Color(0xFFE2E8F0),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 16, color: color),
+          Icon(icon, size: 15, color: color),
           const SizedBox(height: 6),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 12.5,
               fontWeight: FontWeight.w800,
               color: context.textPrimary,
             ),
@@ -572,8 +833,8 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w500,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
               color: context.textMuted,
             ),
           ),
@@ -583,11 +844,24 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
   }
 
   Widget _buildSearchBar(BuildContext context) {
+    final isDark = context.isDark;
     return Container(
       decoration: BoxDecoration(
-        color: context.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: context.border),
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE2E8F0),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.30)
+                : const Color(0xFF94A3B8).withValues(alpha: 0.10),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: TextField(
         controller: _searchCtrl,
@@ -600,7 +874,7 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
         decoration: InputDecoration(
           hintText: 'Cari mata kuliah atau kode...',
           hintStyle: TextStyle(fontSize: 13, color: context.textMuted),
-          prefixIcon: Icon(Icons.search_rounded, size: 20, color: context.textMuted),
+          prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.upiYellowDeep),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
                   icon: const Icon(Icons.clear_rounded, size: 18),
@@ -637,6 +911,7 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
       child: Row(
         children: filters.map((f) {
           final key = f['key'] as String;
@@ -647,23 +922,34 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
 
           return Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: InkWell(
+            child: IosBounceTap(
               onTap: () {
+                HapticFeedback.selectionClick();
                 setState(() {
                   _selectedStatus = key;
                 });
               },
-              borderRadius: BorderRadius.circular(20),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
                 decoration: BoxDecoration(
                   color: isSelected
                       ? color
-                      : color.withValues(alpha: context.isDark ? 0.12 : 0.07),
-                  borderRadius: BorderRadius.circular(20),
+                      : color.withValues(alpha: context.isDark ? 0.12 : 0.08),
+                  borderRadius: BorderRadius.circular(22),
                   border: Border.all(
                     color: isSelected ? color : color.withValues(alpha: 0.25),
+                    width: 1.2,
                   ),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: color.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ]
+                      : null,
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -672,16 +958,16 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
                       label,
                       style: TextStyle(
                         fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                         color: isSelected ? Colors.white : color,
                       ),
                     ),
-                    const SizedBox(width: 5),
+                    const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? Colors.white.withValues(alpha: 0.25)
+                            ? Colors.white.withValues(alpha: 0.28)
                             : color.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -707,6 +993,7 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
   Widget _buildSemesterFilterRow(BuildContext context, List<int> semesters) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
       child: Row(
         children: [
           _semesterChip(
@@ -735,31 +1022,33 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
   }) {
     return Padding(
       padding: const EdgeInsets.only(right: 6),
-      child: FilterChip(
-        label: Text(label),
-        selected: isSelected,
-        onSelected: (_) {
+      child: IosBounceTap(
+        onTap: () {
+          HapticFeedback.selectionClick();
           setState(() {
             _selectedSemester = semNum;
           });
         },
-        selectedColor: AppColors.amber.withValues(alpha: 0.2),
-        checkmarkColor: AppColors.upiYellowDeep,
-        labelStyle: TextStyle(
-          fontSize: 11.5,
-          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-          color: isSelected ? AppColors.upiYellowDeep : context.textPrimary,
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5.5),
+          decoration: BoxDecoration(
             color: isSelected
                 ? AppColors.upiYellowDeep
-                : context.border,
+                : (context.isDark ? const Color(0xFF222226) : const Color(0xFFF1F5F9)),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected ? AppColors.upiYellowDeep : context.border,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+              color: isSelected ? Colors.white : context.textPrimary,
+            ),
           ),
         ),
-        backgroundColor: context.card,
       ),
     );
   }
@@ -786,7 +1075,7 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
 
       widgets.add(
         Padding(
-          padding: const EdgeInsets.only(top: 8, bottom: 8),
+          padding: const EdgeInsets.only(top: 10, bottom: 8),
           child: Row(
             children: [
               Container(
@@ -801,7 +1090,7 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
               Text(
                 'Semester $sem',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 14.5,
                   fontWeight: FontWeight.w800,
                   color: context.textPrimary,
                 ),
@@ -834,6 +1123,7 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
             mk: mk,
             parseNum: _parseNum,
             statusKind: _resolveStatusKind(mk),
+            neuCardBuilder: _buildNeuCard,
           ),
         );
       }
@@ -843,22 +1133,17 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
   }
 
   Widget _buildEmptyState(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: context.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: context.border),
-      ),
+    return _buildNeuCard(
+      context: context,
+      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
       child: Column(
         children: [
           Container(
-            width: 52,
-            height: 52,
+            width: 54,
+            height: 54,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: AppColors.amber.withValues(alpha: 0.12),
+              color: AppColors.amber.withValues(alpha: 0.14),
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -871,8 +1156,8 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
           Text(
             'Mata Kuliah Tidak Ditemukan',
             style: TextStyle(
-              fontSize: 14.5,
-              fontWeight: FontWeight.w700,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
               color: context.textPrimary,
             ),
           ),
@@ -882,7 +1167,7 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 12.5, color: context.textMuted),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           FilledButton.icon(
             onPressed: () {
               _searchCtrl.clear();
@@ -894,13 +1179,16 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
             },
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.upiYellowDeep,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
               ),
+              elevation: 2,
             ),
             icon: const Icon(Icons.refresh_rounded, size: 16),
-            label: const Text('Reset Filter', style: TextStyle(fontSize: 12.5)),
+            label: const Text('Reset Filter',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -915,11 +1203,18 @@ class _KurikulumMkCard extends StatelessWidget {
     required this.mk,
     required this.parseNum,
     required this.statusKind,
+    required this.neuCardBuilder,
   });
 
   final Map<String, dynamic> mk;
   final int Function(dynamic v, [int fallback]) parseNum;
   final String statusKind;
+  final Widget Function({
+    required BuildContext context,
+    required Widget child,
+    EdgeInsetsGeometry padding,
+    VoidCallback? onTap,
+  }) neuCardBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -954,28 +1249,11 @@ class _KurikulumMkCard extends StatelessWidget {
       statusIcon = Icons.radio_button_unchecked_rounded;
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: context.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: statusKind == 'taken'
-              ? AppColors.green.withValues(alpha: 0.3)
-              : (statusKind == 'current'
-                  ? AppColors.upiYellowDeep.withValues(alpha: 0.35)
-                  : context.border),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: neuCardBuilder(
+        context: context,
+        padding: const EdgeInsets.all(15),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -989,7 +1267,6 @@ class _KurikulumMkCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: context.softFill,
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: context.border),
                     ),
                     child: Text(
                       'Sem $semNum',
@@ -1002,12 +1279,11 @@ class _KurikulumMkCard extends StatelessWidget {
                   ),
 
                 // Kode MK (klik untuk salin)
-                InkWell(
+                IosBounceTap(
                   onTap: () {
                     Clipboard.setData(ClipboardData(text: kode));
                     appToast(context, 'Kode $kode disalin.');
                   },
-                  borderRadius: BorderRadius.circular(6),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                     decoration: BoxDecoration(
@@ -1021,7 +1297,7 @@ class _KurikulumMkCard extends StatelessWidget {
                           kode,
                           style: const TextStyle(
                             fontSize: 11,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w800,
                             color: AppColors.upiYellowDeep,
                             letterSpacing: 0.3,
                           ),
@@ -1051,7 +1327,7 @@ class _KurikulumMkCard extends StatelessWidget {
                     '$sksNum SKS',
                     style: const TextStyle(
                       fontSize: 11,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                       color: AppColors.upiYellowDeep,
                     ),
                   ),
@@ -1100,7 +1376,7 @@ class _KurikulumMkCard extends StatelessWidget {
                 color: statusColor.withValues(alpha: context.isDark ? 0.1 : 0.06),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: statusColor.withValues(alpha: 0.2),
+                  color: statusColor.withValues(alpha: 0.25),
                 ),
               ),
               child: Row(
@@ -1111,7 +1387,7 @@ class _KurikulumMkCard extends StatelessWidget {
                     child: Text(
                       statusLabelText,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 11.5,
                         fontWeight: FontWeight.w700,
                         color: statusColor,
                       ),
@@ -1130,7 +1406,7 @@ class _KurikulumMkCard extends StatelessWidget {
                         nilai,
                         style: const TextStyle(
                           fontSize: 11.5,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w900,
                           color: Colors.white,
                         ),
                       ),
@@ -1157,4 +1433,3 @@ class _KurikulumMkCard extends StatelessWidget {
     );
   }
 }
-

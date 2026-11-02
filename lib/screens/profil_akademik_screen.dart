@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../services/api_client.dart';
@@ -7,11 +8,16 @@ import '../theme/app_theme.dart';
 import '../utils/format.dart';
 import '../utils/smart.dart';
 import '../widgets/common.dart';
-import '../widgets/gradient_header.dart';
+
+const _yellowHeaderGradient = [
+  Color(0xFFE5A620), // Bright Academic Gold
+  Color(0xFFD48B08), // UPI Yellow
+  Color(0xFFB87500), // Deep Academic Gold
+];
 
 /// Halaman Profil Akademik Lengkap Mahasiswa:
 /// Menampilkan Identitas, Informasi Akademik, Dosen PA, Kontak, Domisili,
-/// dan Riwayat Sekolah serta formulir Ubah Profil akademik.
+/// dan Riwayat Sekolah serta formulir Ubah Profil akademik bergaya Neumorphic UI.
 class ProfilAkademikScreen extends StatefulWidget {
   const ProfilAkademikScreen({super.key});
 
@@ -85,6 +91,9 @@ class _ProfilAkademikScreenState extends State<ProfilAkademikScreen>
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
+    final isDark = context.isDark;
+    final bg = isDark ? const Color(0xFF000000) : const Color(0xFFF9FAFB);
+
     final identitas = asMap(_data?['identitas']);
     final akademik = asMap(_data?['akademik']);
 
@@ -96,223 +105,58 @@ class _ProfilAkademikScreenState extends State<ProfilAkademikScreen>
     final status = pickString(akademik, ['status', 'Status'], 'Aktif');
 
     return Scaffold(
-      backgroundColor: context.bg,
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) {
-          return [
-            SliverToBoxAdapter(
-              child: GradientHeader(
-                title: 'Profil Akademik',
-                subtitle: 'Biodata & riwayat kemahasiswaan',
-                tall: true,
-                leading: Navigator.of(context).canPop()
-                    ? const HeaderBackButton()
-                    : null,
-                actions: [
-                  HeaderActionButton(
-                    icon: Icons.refresh_rounded,
-                    tooltip: 'Muat Ulang',
-                    onPressed: _fetchProfil,
-                  ),
-                  HeaderActionButton(
-                    icon: Icons.edit_note_rounded,
-                    tooltip: 'Ubah Biodata',
-                    onPressed: _openEditSheet,
-                  ),
-                ],
-                bottom: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 62,
-                          height: 62,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: AppColors.logoGradient,
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(18),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.2),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Text(
-                            initialsOf(nama),
-                            style: const TextStyle(
-                              color: AppColors.indigo950,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                nama,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w800,
-                                  height: 1.2,
-                                ),
-                              ),
-                              const SizedBox(height: 5),
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 4,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                children: [
-                                  InkWell(
-                                    onTap: () => copyText(context, nim),
-                                    borderRadius: BorderRadius.circular(6),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.15),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            'NIM $nim',
-                                            style: const TextStyle(
-                                              color: AppColors.amberLight,
-                                              fontSize: 11.5,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          const Icon(Icons.copy_rounded,
-                                              size: 11,
-                                              color: AppColors.amberLight),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.amber.withValues(alpha: 0.25),
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(
-                                          color: AppColors.amber.withValues(alpha: 0.5)),
-                                    ),
-                                    child: Text(
-                                      status.toUpperCase(),
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 10.5,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (prodi.isNotEmpty || fakultas.isNotEmpty) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  [prodi, fakultas]
-                                      .where((s) => s.isNotEmpty)
-                                      .join(' • '),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.82),
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+      backgroundColor: bg,
+      body: Column(
+        children: [
+          // ──── HEADER KUNING DENGAN LEKUKAN BERSAMBUNG & FLOATING PILL TABS ────
+          Stack(
+            alignment: Alignment.bottomCenter,
+            clipBehavior: Clip.none,
+            children: [
+              _buildCurvedYellowHeader(
+                nama: nama,
+                nim: nim,
+                prodi: prodi,
+                fakultas: fakultas,
+                status: status,
               ),
-            ),
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _SliverTabHeaderDelegate(
-                TabBar(
-                  controller: _tabController,
-                  isScrollable: true,
-                  indicatorColor: AppColors.upiYellowBright,
-                  indicatorWeight: 3.5,
-                  labelColor: AppColors.indigo700,
-                  unselectedLabelColor: context.textMuted,
-                  labelStyle: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                  ),
-                  unselectedLabelStyle: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  tabAlignment: TabAlignment.start,
-                  tabs: const [
-                    Tab(
-                      icon: Icon(Icons.school_rounded, size: 18),
-                      text: 'Akademik & PA',
-                    ),
-                    Tab(
-                      icon: Icon(Icons.badge_rounded, size: 18),
-                      text: 'Identitas Diri',
-                    ),
-                    Tab(
-                      icon: Icon(Icons.contact_phone_rounded, size: 18),
-                      text: 'Kontak & Domisili',
-                    ),
-                    Tab(
-                      icon: Icon(Icons.account_balance_rounded, size: 18),
-                      text: 'Asal Sekolah',
-                    ),
-                  ],
-                ),
-                backgroundColor: context.bg,
-                borderColor: context.border,
+              Positioned(
+                bottom: -18,
+                left: 0,
+                right: 0,
+                child: _buildPillTabBar(context, isDark),
               ),
-            ),
-          ];
-        },
-        body: _loading
-            ? const Center(
-                child: LoadingView(label: 'Memuat profil akademik...'))
-            : _error != null
-                ? ErrorRetry(
-                    message: _error!,
-                    onRetry: _fetchProfil,
-                  )
-                : TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildAkademikTab(),
-                      _buildIdentitasTab(),
-                      _buildKontakTab(),
-                      _buildSekolahTab(),
-                    ],
-                  ),
+            ],
+          ),
+          const SizedBox(height: 26),
+
+          // ──── TAB BAR VIEW CONTENT ────
+          Expanded(
+            child: _loading
+                ? const Center(
+                    child: LoadingView(label: 'Memuat profil akademik...'))
+                : _error != null
+                    ? ErrorRetry(
+                        message: _error!,
+                        onRetry: _fetchProfil,
+                      )
+                    : TabBarView(
+                        controller: _tabController,
+                        children: [
+                          _buildAkademikTab(isDark),
+                          _buildIdentitasTab(isDark),
+                          _buildKontakTab(isDark),
+                          _buildSekolahTab(isDark),
+                        ],
+                      ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openEditSheet,
         backgroundColor: AppColors.upiYellowDeep,
         foregroundColor: Colors.white,
-        elevation: 3,
+        elevation: 4,
         icon: const Icon(Icons.edit_rounded, size: 19),
         label: const Text(
           'Ubah Profil',
@@ -322,9 +166,460 @@ class _ProfilAkademikScreenState extends State<ProfilAkademikScreen>
     );
   }
 
+  // ────────────────────────────────────────────────── HEADER KUNING DENGAN LEKUKAN BERSAMBUNG
+  Widget _buildCurvedYellowHeader({
+    required String nama,
+    required String nim,
+    required String prodi,
+    required String fakultas,
+    required String status,
+  }) {
+    final canPop = Navigator.of(context).canPop();
+
+    return ClipPath(
+      clipper: const SeamlessWaveClipper(),
+      child: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: _yellowHeaderGradient,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 12, 22, kCurvedHeaderBottomPadding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Baris Atas: Tombol Back + Judul Halaman + Tombol Aksi
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (canPop) ...[
+                          IconButton(
+                            onPressed: () {
+                              Navigator.of(context).maybePop();
+                            },
+                            icon: const Icon(Icons.arrow_back_rounded,
+                                color: Colors.white, size: 24),
+                            tooltip: 'Kembali',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        const Text(
+                          'Profil Akademik',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 21,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Action Buttons (Ubah Biodata & Refresh)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IosBounceTap(
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            _openEditSheet();
+                          },
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.22),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.10),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.edit_rounded,
+                              size: 19,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IosBounceTap(
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            _fetchProfil();
+                            appToast(context, 'Memuat ulang data profil...');
+                          },
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.22),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.10),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.refresh_rounded,
+                              size: 20,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Baris Profil: Lingkaran Inisial (54x54) + Nama, NIM, Status
+                Row(
+                  children: [
+                    Container(
+                      width: 54,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.18),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.85),
+                          width: 1.8,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Text(
+                          initialsOf(nama),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+
+                    // Teks Nama Mahasiswa & Subtitle
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            nama.isNotEmpty ? nama : 'Mahasiswa UPI YPTK',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 17.5,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.4,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                nim.isNotEmpty ? 'NIM $nim' : '-',
+                                style: const TextStyle(
+                                  color: Color(0xE6FFFFFF),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.22),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  'UPI YPTK',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: AppColors.green.withValues(alpha: 0.90),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  status.toUpperCase(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (prodi.isNotEmpty || fakultas.isNotEmpty) ...[
+                            const SizedBox(height: 3),
+                            Text(
+                              [prodi, fakultas].where((s) => s.isNotEmpty).join(' • '),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Color(0xCCFFFFFF),
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ────────────────────────────────────────────────── FLOATING PILL TAB BAR
+  Widget _buildPillTabBar(BuildContext context, bool isDark) {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 14),
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E1E22) : Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: isDark
+                  ? Colors.black.withValues(alpha: 0.40)
+                  : Colors.black.withValues(alpha: 0.08),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: TabBar(
+          controller: _tabController,
+          isScrollable: true,
+          tabAlignment: TabAlignment.center,
+          padding: EdgeInsets.zero,
+          indicatorSize: TabBarIndicatorSize.tab,
+          indicator: BoxDecoration(
+            color: isDark ? const Color(0xFF2C2C30) : AppColors.primaryYellow,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: isDark
+                    ? Colors.black.withValues(alpha: 0.4)
+                    : AppColors.primaryYellow.withValues(alpha: 0.35),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          labelColor: isDark ? Colors.white : const Color(0xFF1C1917),
+          unselectedLabelColor:
+              isDark ? const Color(0xFF8E8E93) : const Color(0xFF78716C),
+          dividerColor: Colors.transparent,
+          labelStyle: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.2,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.2,
+          ),
+          tabs: const [
+            Tab(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.school_rounded, size: 15),
+                  SizedBox(width: 6),
+                  Text('Akademik & PA'),
+                ],
+              ),
+            ),
+            Tab(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.badge_rounded, size: 15),
+                  SizedBox(width: 6),
+                  Text('Identitas Diri'),
+                ],
+              ),
+            ),
+            Tab(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.contact_phone_rounded, size: 15),
+                  SizedBox(width: 6),
+                  Text('Kontak & Domisili'),
+                ],
+              ),
+            ),
+            Tab(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.account_balance_rounded, size: 15),
+                  SizedBox(width: 6),
+                  Text('Asal Sekolah'),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ────────────────────────────────────────────────── NEUMORPHIC CARD HELPER
+  Widget _buildNeuCard({
+    required BuildContext context,
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
+  }) {
+    final isDark = context.isDark;
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF1F5F9),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.35)
+                : const Color(0xFF94A3B8).withValues(alpha: 0.12),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+          if (!isDark)
+            BoxShadow(
+              color: Colors.white.withValues(alpha: 0.9),
+              blurRadius: 10,
+              offset: const Offset(-2, -2),
+            ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  Widget _buildMetricMiniBox(
+    BuildContext context, {
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String value,
+  }) {
+    final isDark = context.isDark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF1F5F9),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.3)
+                : const Color(0xFF94A3B8).withValues(alpha: 0.10),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 14, color: iconColor),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: context.textMuted,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: context.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ========================================================== TAB 1: AKADEMIK & PA
 
-  Widget _buildAkademikTab() {
+  Widget _buildAkademikTab(bool isDark) {
     final akademik = asMap(_data?['akademik']);
     final pa = asMap(_data?['pa']);
 
@@ -334,53 +629,67 @@ class _ProfilAkademikScreenState extends State<ProfilAkademikScreen>
         : <String>[];
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 90),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
       children: [
-        // Card Dosen PA Spesial
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColors.upiYellowDeep.withValues(alpha: 0.12),
-                AppColors.upiYellowBright.withValues(alpha: 0.06),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: AppColors.upiYellowBright.withValues(alpha: 0.4),
-              width: 1.5,
-            ),
-          ),
+        // 1. VIP Card Dosen PA Neumorphic
+        _buildNeuCard(
+          context: context,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    width: 48,
+                    height: 48,
                     decoration: BoxDecoration(
-                      color: AppColors.upiYellowDeep,
-                      borderRadius: BorderRadius.circular(10),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFE5A620), Color(0xFFB87500)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.upiYellowDeep.withValues(alpha: 0.30),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
                     ),
-                    child: const Icon(Icons.supervised_user_circle_rounded,
-                        color: Colors.white, size: 20),
+                    child: const Icon(
+                      Icons.supervised_user_circle_rounded,
+                      color: Colors.white,
+                      size: 26,
+                    ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Pembimbing Akademik (Dosen PA)',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.upiYellowDeep,
-                          ),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.upiYellowDeep
+                                    .withValues(alpha: 0.14),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Text(
+                                'Pembimbing Akademik (Dosen PA)',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.upiYellowDeep,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
+                        const SizedBox(height: 4),
                         Text(
                           paNama.isNotEmpty
                               ? paNama
@@ -397,25 +706,25 @@ class _ProfilAkademikScreenState extends State<ProfilAkademikScreen>
                 ],
               ),
               if (paInfoList.isNotEmpty) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 const Divider(height: 1),
                 const SizedBox(height: 10),
                 for (final info in paInfoList)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
+                    padding: const EdgeInsets.only(bottom: 5),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Icon(Icons.info_outline_rounded,
                             size: 15, color: AppColors.upiYellowDeep),
-                        const SizedBox(width: 7),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             info,
                             style: TextStyle(
                               fontSize: 12,
                               color: context.textMuted,
-                              height: 1.25,
+                              height: 1.3,
                             ),
                           ),
                         ),
@@ -426,51 +735,104 @@ class _ProfilAkademikScreenState extends State<ProfilAkademikScreen>
             ],
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 14),
 
+        // 2. Mini Metric Capsules
+        Row(
+          children: [
+            Expanded(
+              child: _buildMetricMiniBox(
+                context,
+                icon: Icons.check_circle_rounded,
+                iconColor: AppColors.green,
+                title: 'Status',
+                value: pickString(akademik, ['status', 'Status'], 'Aktif'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildMetricMiniBox(
+                context,
+                icon: Icons.school_rounded,
+                iconColor: AppColors.upiYellowDeep,
+                title: 'Jenjang',
+                value: pickString(akademik, ['jenjang', 'Jenjang'], 'S1'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildMetricMiniBox(
+                context,
+                icon: Icons.calendar_today_rounded,
+                iconColor: const Color(0xFF0284C7),
+                title: 'Angkatan',
+                value: pickString(akademik, ['angkatan', 'Angkatan'], '-'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // 3. Detail Akademik Card
         const SectionTitle('Informasi Program & Status'),
         const SizedBox(height: 10),
-        SurfaceCard(
+        _buildNeuCard(
+          context: context,
           child: Column(
             children: [
               _infoTile(
-                  icon: Icons.badge_outlined,
-                  label: 'NIM',
-                  value: pickString(akademik, ['nim', 'NIM'], '-'),
-                  copyable: true),
+                context: context,
+                icon: Icons.badge_outlined,
+                label: 'NIM',
+                value: pickString(akademik, ['nim', 'NIM'], '-'),
+                copyable: true,
+              ),
               _infoTile(
-                  icon: Icons.account_balance_outlined,
-                  label: 'Fakultas',
-                  value: pickString(akademik, ['fakultas', 'Fakultas'], '-')),
+                context: context,
+                icon: Icons.account_balance_outlined,
+                label: 'Fakultas',
+                value: pickString(akademik, ['fakultas', 'Fakultas'], '-'),
+              ),
               _infoTile(
-                  icon: Icons.school_outlined,
-                  label: 'Program Studi',
-                  value: pickString(
-                      akademik, ['program_studi', 'Program Studi', 'prodi'], '-')),
+                context: context,
+                icon: Icons.school_outlined,
+                label: 'Program Studi',
+                value: pickString(akademik,
+                    ['program_studi', 'Program Studi', 'prodi'], '-'),
+              ),
               _infoTile(
-                  icon: Icons.stairs_outlined,
-                  label: 'Jenjang Studi',
-                  value: pickString(akademik, ['jenjang', 'Jenjang'], 'S1')),
+                context: context,
+                icon: Icons.stairs_outlined,
+                label: 'Jenjang Studi',
+                value: pickString(akademik, ['jenjang', 'Jenjang'], 'S1'),
+              ),
               _infoTile(
-                  icon: Icons.calendar_today_outlined,
-                  label: 'Angkatan',
-                  value: pickString(akademik, ['angkatan', 'Angkatan'], '-')),
+                context: context,
+                icon: Icons.calendar_today_outlined,
+                label: 'Angkatan',
+                value: pickString(akademik, ['angkatan', 'Angkatan'], '-'),
+              ),
               _infoTile(
-                  icon: Icons.event_repeat_outlined,
-                  label: 'Semester Masuk / Aktif',
-                  value: pickString(akademik,
-                      ['semester', 'Semester', 'semester_aktif'], '-')),
+                context: context,
+                icon: Icons.event_repeat_outlined,
+                label: 'Semester Masuk / Aktif',
+                value: pickString(akademik,
+                    ['semester', 'Semester', 'semester_aktif'], '-'),
+              ),
               _infoTile(
-                  icon: Icons.verified_user_outlined,
-                  label: 'Status Mahasiswa',
-                  value: pickString(akademik, ['status', 'Status'], 'Aktif')),
-              // Tampilkan field tambahan jika ada
+                context: context,
+                icon: Icons.verified_user_outlined,
+                label: 'Status Mahasiswa',
+                value: pickString(akademik, ['status', 'Status'], 'Aktif'),
+              ),
+              // Dynamic fields
               for (final entry in akademik.entries)
                 if (!_isStandardAkademikKey(entry.key) &&
                     entry.value != null &&
                     entry.value is! Map &&
                     entry.value is! List)
                   _infoTile(
+                    context: context,
                     icon: Icons.check_circle_outline_rounded,
                     label: labelify(entry.key),
                     value: entry.value.toString(),
@@ -484,8 +846,9 @@ class _ProfilAkademikScreenState extends State<ProfilAkademikScreen>
 
   // ========================================================== TAB 2: IDENTITAS DIRI
 
-  Widget _buildIdentitasTab() {
+  Widget _buildIdentitasTab(bool isDark) {
     final identitas = asMap(_data?['identitas']);
+    final nik = pickString(identitas, ['nik', 'NIK'], '');
 
     final jkRaw = pickString(identitas, ['jenis_kelamin', 'Jenis Kelamin'], '-');
     final jkLabel = jkRaw.toUpperCase() == 'L'
@@ -493,61 +856,153 @@ class _ProfilAkademikScreenState extends State<ProfilAkademikScreen>
         : (jkRaw.toUpperCase() == 'P' ? 'Perempuan (P)' : jkRaw);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 90),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
       children: [
+        // 1. NIK Security Badge Card
+        _buildNeuCard(
+          context: context,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: AppColors.green.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.verified_user_rounded,
+                            color: AppColors.green, size: 16),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Terverifikasi PDDikti Kemdikbud',
+                        style: TextStyle(
+                          color: AppColors.green,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (nik.isNotEmpty && nik != '-')
+                    IosBounceTap(
+                      onTap: () => copyText(context, nik),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color:
+                              AppColors.upiYellowDeep.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.copy_rounded,
+                                size: 12, color: AppColors.upiYellowDeep),
+                            SizedBox(width: 4),
+                            Text(
+                              'Salin NIK',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.upiYellowDeep,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Nomor Induk Kependudukan (NIK)',
+                style: TextStyle(fontSize: 11.5, color: context.textMuted),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                nik.isNotEmpty ? nik : 'Belum diisi',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontFamily: 'monospace',
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.2,
+                  color:
+                      nik.isNotEmpty ? context.textPrimary : context.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // 2. Biodata Pribadi Card
         const SectionTitle('Biodata Pribadi'),
         const SizedBox(height: 10),
-        SurfaceCard(
+        _buildNeuCard(
+          context: context,
           child: Column(
             children: [
               _infoTile(
-                icon: Icons.credit_card_rounded,
-                label: 'NIK (Nomor Induk Kependudukan)',
-                value: pickString(identitas, ['nik', 'NIK'], '-'),
-                copyable: true,
-              ),
-              _infoTile(
+                context: context,
                 icon: Icons.person_outline_rounded,
                 label: 'Nama Lengkap',
                 value: pickString(identitas, ['nama', 'Nama'], '-'),
               ),
               _infoTile(
+                context: context,
                 icon: Icons.wc_rounded,
                 label: 'Jenis Kelamin',
                 value: jkLabel,
               ),
               _infoTile(
+                context: context,
                 icon: Icons.location_city_outlined,
                 label: 'Tempat Lahir',
-                value: pickString(identitas, ['tempat_lahir', 'Tempat Lahir'], '-'),
+                value: pickString(
+                    identitas, ['tempat_lahir', 'Tempat Lahir'], '-'),
               ),
               _infoTile(
+                context: context,
                 icon: Icons.cake_outlined,
                 label: 'Tanggal Lahir',
-                value: pickString(identitas, ['tanggal_lahir', 'Tanggal Lahir'], '-'),
+                value: pickString(
+                    identitas, ['tanggal_lahir', 'Tanggal Lahir'], '-'),
               ),
               _infoTile(
+                context: context,
                 icon: Icons.temple_buddhist_outlined,
                 label: 'Agama',
                 value: pickString(identitas, ['agama', 'Agama'], '-'),
               ),
               _infoTile(
+                context: context,
                 icon: Icons.flag_outlined,
                 label: 'Warga Negara',
-                value: pickString(identitas, ['warga_negara', 'Warga Negara'], 'WNI'),
+                value: pickString(
+                    identitas, ['warga_negara', 'Warga Negara'], 'WNI'),
               ),
               _infoTile(
+                context: context,
                 icon: Icons.public_rounded,
                 label: 'Kebangsaan',
-                value: pickString(identitas, ['kebangsaan', 'Kebangsaan'], 'Indonesia'),
+                value: pickString(
+                    identitas, ['kebangsaan', 'Kebangsaan'], 'Indonesia'),
               ),
-              // Field ekstra
+              // Dynamic fields
               for (final entry in identitas.entries)
                 if (!_isStandardIdentitasKey(entry.key) &&
                     entry.value != null &&
                     entry.value is! Map &&
                     entry.value is! List)
                   _infoTile(
+                    context: context,
                     icon: Icons.fingerprint_rounded,
                     label: labelify(entry.key),
                     value: entry.value.toString(),
@@ -561,30 +1016,35 @@ class _ProfilAkademikScreenState extends State<ProfilAkademikScreen>
 
   // ========================================================== TAB 3: KONTAK & DOMISILI
 
-  Widget _buildKontakTab() {
+  Widget _buildKontakTab(bool isDark) {
     final kontak = asMap(_data?['kontak']);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 90),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
       children: [
         const SectionTitle('Kontak Mahasiswa'),
         const SizedBox(height: 10),
-        SurfaceCard(
+        _buildNeuCard(
+          context: context,
           child: Column(
             children: [
               _infoTile(
+                context: context,
                 icon: Icons.email_outlined,
                 label: 'Email',
                 value: pickString(kontak, ['email', 'Email'], '-'),
                 copyable: true,
               ),
               _infoTile(
+                context: context,
                 icon: Icons.phone_android_rounded,
                 label: 'No. Handphone / WhatsApp',
-                value: pickString(kontak, ['handphone', 'hp', 'Handphone'], '-'),
+                value: pickString(
+                    kontak, ['handphone', 'hp', 'Handphone'], '-'),
                 copyable: true,
               ),
               _infoTile(
+                context: context,
                 icon: Icons.call_outlined,
                 label: 'Telepon',
                 value: pickString(kontak, ['telepon', 'Telepon'], '-'),
@@ -597,41 +1057,49 @@ class _ProfilAkademikScreenState extends State<ProfilAkademikScreen>
 
         const SectionTitle('Alamat & Tempat Tinggal'),
         const SizedBox(height: 10),
-        SurfaceCard(
+        _buildNeuCard(
+          context: context,
           child: Column(
             children: [
               _infoTile(
+                context: context,
                 icon: Icons.home_outlined,
                 label: 'Alamat Lengkap',
                 value: pickString(kontak, ['alamat', 'Alamat'], '-'),
               ),
               _infoTile(
+                context: context,
                 icon: Icons.location_city_rounded,
                 label: 'Kota / Kabupaten',
                 value: pickString(kontak, ['kota', 'Kota'], '-'),
               ),
               _infoTile(
+                context: context,
                 icon: Icons.map_outlined,
                 label: 'Provinsi',
-                value: pickString(kontak, ['propinsi', 'provinsi', 'Propinsi'], '-'),
+                value: pickString(
+                    kontak, ['propinsi', 'provinsi', 'Propinsi'], '-'),
               ),
               _infoTile(
+                context: context,
                 icon: Icons.markunread_mailbox_outlined,
                 label: 'Kode Pos',
                 value: pickString(kontak, ['kode_pos', 'Kode Pos'], '-'),
               ),
               _infoTile(
+                context: context,
                 icon: Icons.public_outlined,
                 label: 'Negara',
                 value: pickString(kontak, ['negara', 'Negara'], 'Indonesia'),
               ),
-              // Field ekstra
+              // Dynamic fields
               for (final entry in kontak.entries)
                 if (!_isStandardKontakKey(entry.key) &&
                     entry.value != null &&
                     entry.value is! Map &&
                     entry.value is! List)
                   _infoTile(
+                    context: context,
                     icon: Icons.pin_drop_outlined,
                     label: labelify(entry.key),
                     value: entry.value.toString(),
@@ -645,44 +1113,54 @@ class _ProfilAkademikScreenState extends State<ProfilAkademikScreen>
 
   // ========================================================== TAB 4: ASAL SEKOLAH
 
-  Widget _buildSekolahTab() {
+  Widget _buildSekolahTab(bool isDark) {
     final sekolah = asMap(_data?['sekolah']);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 90),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
       children: [
         const SectionTitle('Pendidikan Terakhir / Sekolah Asal'),
         const SizedBox(height: 10),
-        SurfaceCard(
+        _buildNeuCard(
+          context: context,
           child: Column(
             children: [
               _infoTile(
+                context: context,
                 icon: Icons.account_balance_outlined,
                 label: 'Nama Sekolah Asal',
-                value: pickString(sekolah, ['asal_sekolah', 'Asal Sekolah'], '-'),
+                value: pickString(
+                    sekolah, ['asal_sekolah', 'Asal Sekolah'], '-'),
               ),
               _infoTile(
+                context: context,
                 icon: Icons.category_outlined,
                 label: 'Jurusan / Peminatan',
-                value: pickString(sekolah, ['jurusan_sekolah', 'Jurusan Sekolah'], '-'),
+                value: pickString(
+                    sekolah, ['jurusan_sekolah', 'Jurusan Sekolah'], '-'),
               ),
               _infoTile(
+                context: context,
                 icon: Icons.location_on_outlined,
                 label: 'Kota Sekolah',
-                value: pickString(sekolah, ['kota_sekolah', 'Kota Sekolah'], '-'),
+                value: pickString(
+                    sekolah, ['kota_sekolah', 'Kota Sekolah'], '-'),
               ),
               _infoTile(
+                context: context,
                 icon: Icons.history_edu_outlined,
                 label: 'Tahun Kelulusan',
-                value: pickString(sekolah, ['tahun_lulus', 'Tahun Lulus'], '-'),
+                value:
+                    pickString(sekolah, ['tahun_lulus', 'Tahun Lulus'], '-'),
               ),
-              // Field ekstra
+              // Dynamic fields
               for (final entry in sekolah.entries)
                 if (!_isStandardSekolahKey(entry.key) &&
                     entry.value != null &&
                     entry.value is! Map &&
                     entry.value is! List)
                   _infoTile(
+                    context: context,
                     icon: Icons.school_outlined,
                     label: labelify(entry.key),
                     value: entry.value.toString(),
@@ -694,9 +1172,9 @@ class _ProfilAkademikScreenState extends State<ProfilAkademikScreen>
     );
   }
 
-  // ------------------------------------------------------------- Tile Helper
-
+  // ────────────────────────────────────────────────── TILE HELPER
   Widget _infoTile({
+    required BuildContext context,
     required IconData icon,
     required String label,
     required String value,
@@ -706,17 +1184,17 @@ class _ProfilAkademikScreenState extends State<ProfilAkademikScreen>
     final displayValue = isEmpty ? 'Belum diisi' : value;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 9),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(7),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: AppColors.upiYellowDeep.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(9),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, size: 16, color: AppColors.upiYellowDeep),
+            child: Icon(icon, size: 17, color: AppColors.upiYellowDeep),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -745,72 +1223,80 @@ class _ProfilAkademikScreenState extends State<ProfilAkademikScreen>
             ),
           ),
           if (copyable && !isEmpty)
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              icon: const Icon(Icons.copy_rounded, size: 16),
-              color: AppColors.upiYellowDeep,
-              tooltip: 'Salin',
-              onPressed: () => copyText(context, value),
+            IosBounceTap(
+              onTap: () => copyText(context, value),
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.upiYellowDeep.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.copy_rounded,
+                  size: 15,
+                  color: AppColors.upiYellowDeep,
+                ),
+              ),
             ),
         ],
       ),
     );
   }
 
-  // ------------------------------------------------------------- Key Filter Helpers
-
+  // ────────────────────────────────────────────────── KEY FILTER HELPERS
   bool _isStandardAkademikKey(String k) {
     final lk = k.toLowerCase().replaceAll(' ', '_');
-    return ['nim', 'fakultas', 'program_studi', 'prodi', 'jenjang', 'angkatan', 'semester', 'semester_aktif', 'status'].contains(lk);
+    return [
+      'nim',
+      'fakultas',
+      'program_studi',
+      'prodi',
+      'jenjang',
+      'angkatan',
+      'semester',
+      'semester_aktif',
+      'status'
+    ].contains(lk);
   }
 
   bool _isStandardIdentitasKey(String k) {
     final lk = k.toLowerCase().replaceAll(' ', '_');
-    return ['nik', 'nama', 'jenis_kelamin', 'tempat_lahir', 'tanggal_lahir', 'agama', 'warga_negara', 'kebangsaan'].contains(lk);
+    return [
+      'nik',
+      'nama',
+      'jenis_kelamin',
+      'tempat_lahir',
+      'tanggal_lahir',
+      'agama',
+      'warga_negara',
+      'kebangsaan'
+    ].contains(lk);
   }
 
   bool _isStandardKontakKey(String k) {
     final lk = k.toLowerCase().replaceAll(' ', '_');
-    return ['email', 'handphone', 'hp', 'telepon', 'alamat', 'kota', 'propinsi', 'provinsi', 'kode_pos', 'negara'].contains(lk);
+    return [
+      'email',
+      'handphone',
+      'hp',
+      'telepon',
+      'alamat',
+      'kota',
+      'propinsi',
+      'provinsi',
+      'kode_pos',
+      'negara'
+    ].contains(lk);
   }
 
   bool _isStandardSekolahKey(String k) {
     final lk = k.toLowerCase().replaceAll(' ', '_');
-    return ['asal_sekolah', 'jurusan_sekolah', 'kota_sekolah', 'tahun_lulus'].contains(lk);
-  }
-}
-
-// ============================================================ SLIVER TAB BAR DELEGATE
-
-class _SliverTabHeaderDelegate extends SliverPersistentHeaderDelegate {
-  _SliverTabHeaderDelegate(this._tabBar,
-      {required this.backgroundColor, required this.borderColor});
-
-  final TabBar _tabBar;
-  final Color backgroundColor;
-  final Color borderColor;
-
-  @override
-  double get minExtent => _tabBar.preferredSize.height + 1;
-
-  @override
-  double get maxExtent => _tabBar.preferredSize.height + 1;
-
-  @override
-  Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Container(
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        border: Border(bottom: BorderSide(color: borderColor, width: 1)),
-      ),
-      child: _tabBar,
-    );
-  }
-
-  @override
-  bool shouldRebuild(_SliverTabHeaderDelegate oldDelegate) {
-    return false;
+    return [
+      'asal_sekolah',
+      'jurusan_sekolah',
+      'kota_sekolah',
+      'tahun_lulus'
+    ].contains(lk);
   }
 }
 
@@ -1243,7 +1729,7 @@ class _EditProfilAkademikSheetState extends State<_EditProfilAkademikSheet> {
 
                     // Agama
                     DropdownButtonFormField<String>(
-                      value: _agama,
+                      initialValue: _agama,
                       items: _agamaOptions
                           .map((a) => DropdownMenuItem(value: a, child: Text(a)))
                           .toList(),

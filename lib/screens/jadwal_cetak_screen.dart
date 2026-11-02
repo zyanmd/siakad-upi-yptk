@@ -9,6 +9,7 @@ import '../services/api_client.dart';
 import '../theme/app_theme.dart';
 import '../utils/smart.dart';
 import '../widgets/common.dart';
+import '../widgets/gradient_header.dart';
 
 /// Halaman tampilan resmi lembar cetak Jadwal Perkuliahan
 /// yang menampilkan dokumen cetak resmi secara langsung di dalam aplikasi
@@ -171,6 +172,7 @@ class _JadwalCetakScreenState extends State<JadwalCetakScreen> {
     try {
       await Printing.layoutPdf(
         onLayout: (PdfPageFormat format) async {
+          // ignore: deprecated_member_use
           return await Printing.convertHtml(
             format: format,
             html: htmlContent,
@@ -222,91 +224,53 @@ class _JadwalCetakScreenState extends State<JadwalCetakScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.bg,
-      appBar: AppBar(
-        title: const Text(
-          'Lembar Cetak Jadwal',
-          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Salin Teks Jadwal',
-            icon: const Icon(Icons.copy_rounded),
-            onPressed: () async {
-              try {
-                final d = await _future;
-                if (mounted) _salinRincian(d);
-              } catch (_) {}
-            },
+      body: Column(
+        children: [
+          GradientHeader(
+            title: 'Lembar Cetak Jadwal',
+            subtitle: 'Periode ${widget.periode} • Dokumen Resmi Akademik',
+            leading: Navigator.of(context).canPop() ? const HeaderBackButton() : null,
+            actions: [
+              HeaderActionButton(
+                icon: Icons.copy_rounded,
+                tooltip: 'Salin Teks Jadwal',
+                onPressed: () async {
+                  try {
+                    final d = await _future;
+                    if (mounted) _salinRincian(d);
+                  } catch (_) {}
+                },
+              ),
+              HeaderActionButton(
+                icon: Icons.refresh_rounded,
+                tooltip: 'Muat Ulang',
+                onPressed: () => setState(() => _future = _loadData()),
+              ),
+            ],
           ),
-          IconButton(
-            tooltip: 'Muat Ulang',
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () {
-              setState(() {
-                _future = _loadData();
-              });
-            },
+          Expanded(
+            child: FutureBuilder<Map<String, dynamic>>(
+              future: _future,
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: LoadingView(label: 'Menyiapkan lembar cetak jadwal...'),
+                  );
+                }
+
+                if (snap.hasError) {
+                  return ErrorRetry(
+                    message: errorText(snap.error ?? 'Terjadi kesalahan.'),
+                    onRetry: () => setState(() => _future = _loadData()),
+                  );
+                }
+
+                final data = snap.data ?? const <String, dynamic>{};
+                return _buildPaperSheet(context, data);
+              },
+            ),
           ),
         ],
-      ),
-      body: FutureBuilder<Map<String, dynamic>>(
-        future: _future,
-        builder: (context, snap) {
-          if (snap.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(strokeWidth: 3),
-                  SizedBox(height: 14),
-                  Text(
-                    'Menyiapkan lembar cetak jadwal...',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          if (snap.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.error_outline_rounded,
-                        size: 48, color: AppColors.red),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Gagal Memuat Lembar Cetak',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      errorText(snap.error ?? 'Terjadi kesalahan.'),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 12.5, color: context.textMuted),
-                    ),
-                    const SizedBox(height: 18),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _future = _loadData();
-                        });
-                      },
-                      icon: const Icon(Icons.refresh_rounded),
-                      label: const Text('Coba Lagi'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-
-          final data = snap.data ?? const <String, dynamic>{};
-          return _buildPaperSheet(context, data);
-        },
       ),
       bottomNavigationBar: FutureBuilder<Map<String, dynamic>>(
         future: _future,
@@ -316,17 +280,10 @@ class _JadwalCetakScreenState extends State<JadwalCetakScreen> {
           final webUrl = pickString(data, ['url', 'print_url'], '');
 
           return Container(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
             decoration: BoxDecoration(
               color: context.card,
-              border: Border(top: BorderSide(color: context.border)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 10,
-                  offset: const Offset(0, -3),
-                ),
-              ],
+              border: Border(top: BorderSide(color: context.border, width: 0.5)),
             ),
             child: SafeArea(
               child: Row(
@@ -336,13 +293,21 @@ class _JadwalCetakScreenState extends State<JadwalCetakScreen> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Cetak Jadwal dari HP',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                        ),
                         Text(
-                          'Simpan PDF atau kirim ke printer',
-                          style: TextStyle(fontSize: 10.5, color: context.textMuted),
+                          'Jadwal Kuliah ${widget.periode}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: context.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          'Siap dicetak atau disimpan ke PDF',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: context.textMuted,
+                          ),
                         ),
                       ],
                     ),
@@ -351,10 +316,10 @@ class _JadwalCetakScreenState extends State<JadwalCetakScreen> {
                     OutlinedButton.icon(
                       onPressed: () => openExternal(context, webUrl),
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      icon: const Icon(Icons.open_in_browser_rounded, size: 18),
+                      icon: const Icon(Icons.public_rounded, size: 16),
                       label: const Text('Web', style: TextStyle(fontWeight: FontWeight.w700)),
                     ),
                     const SizedBox(width: 8),
@@ -364,8 +329,8 @@ class _JadwalCetakScreenState extends State<JadwalCetakScreen> {
                         ? null
                         : () => _cetakPdf(htmlContent),
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.upiYellowDeep,
-                      foregroundColor: Colors.white,
+                      backgroundColor: AppColors.primaryYellow,
+                      foregroundColor: const Color(0xFF1C1917),
                       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
@@ -373,12 +338,15 @@ class _JadwalCetakScreenState extends State<JadwalCetakScreen> {
                         ? const SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1C1917)),
+                            ),
                           )
-                        : const Icon(Icons.print_rounded, size: 20),
+                        : const Icon(Icons.print_rounded, size: 18),
                     label: Text(
-                      _isPrinting ? 'Mempersiapkan...' : 'Cetak / PDF',
-                      style: const TextStyle(fontWeight: FontWeight.w800),
+                      _isPrinting ? 'Mencetak...' : 'Cetak / Simpan PDF',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                   ),
                 ],

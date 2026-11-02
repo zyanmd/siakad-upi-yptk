@@ -1,14 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../services/api_client.dart';
+import '../state/auth_provider.dart';
 import '../state/periode_provider.dart';
 import '../theme/app_theme.dart';
+import '../utils/format.dart';
 import '../utils/smart.dart';
-import '../widgets/async_page.dart';
 import '../widgets/common.dart';
 import '../widgets/periode_dropdown.dart';
 import '../widgets/smart_detail_page.dart';
+
+// ── UPI YPTK Golden Yellow Gradient ──
+const _yellowHeaderGradient = [
+  Color(0xFFE5A620), // Bright Academic Gold
+  Color(0xFFD48B08), // UPI Yellow
+  Color(0xFFB87500), // Deep Academic Gold
+];
 
 /// Rekap presensi kuliah per mata kuliah untuk periode berjalan
 /// dengan pemilih periode dropdown dinamis, metrik kehadiran,
@@ -21,13 +30,14 @@ class PresensiScreen extends StatefulWidget {
 }
 
 class _PresensiScreenState extends State<PresensiScreen> {
-  final _pageKey = GlobalKey<AsyncPageState<Map<String, dynamic>>>();
   final TextEditingController _searchCtrl = TextEditingController();
   PeriodeProvider? _pp;
   String? _selectedPeriode;
   List<PeriodeOption> _periodeOpts = [];
   String _searchQuery = '';
   String _selectedProgres = 'all'; // all, berjalan, belum dimulai, lengkap
+  Future<Map<String, dynamic>>? _future;
+  Map<String, dynamic>? _cachedData;
 
   @override
   void initState() {
@@ -40,12 +50,13 @@ class _PresensiScreenState extends State<PresensiScreen> {
       if (_pp!.items.isNotEmpty) {
         _periodeOpts = List.from(_pp!.items);
       }
+      _reload();
       _pp!.ensureLoaded().then((_) {
         if (mounted) {
           if (_periodeOpts.isEmpty && _pp!.items.isNotEmpty) {
             _periodeOpts = List.from(_pp!.items);
           }
-          _pageKey.currentState?.reload();
+          _reload();
         }
       });
     });
@@ -56,8 +67,14 @@ class _PresensiScreenState extends State<PresensiScreen> {
       setState(() {
         _selectedPeriode = _pp!.value;
       });
-      _pageKey.currentState?.reload();
+      _reload();
     }
+  }
+
+  void _reload() {
+    setState(() {
+      _future = _load();
+    });
   }
 
   @override
@@ -95,9 +112,11 @@ class _PresensiScreenState extends State<PresensiScreen> {
       }
     }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() {});
-    });
+    if (mounted) {
+      setState(() {
+        _cachedData = mapData;
+      });
+    }
 
     return mapData;
   }
@@ -108,7 +127,7 @@ class _PresensiScreenState extends State<PresensiScreen> {
       _selectedPeriode = newPeriode;
     });
     context.read<PeriodeProvider>().set(newPeriode);
-    _pageKey.currentState?.reload();
+    _reload();
   }
 
   void _openDetail(Map<String, dynamic> item, String periode) {
@@ -128,31 +147,357 @@ class _PresensiScreenState extends State<PresensiScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    final isDark = context.isDark;
+    final bg = isDark ? const Color(0xFF000000) : const Color(0xFFF9FAFB);
+
+    final metrics = asMap(_cachedData?['metrics']);
+    final rataKehadiran = pickString(metrics, ['rata_kehadiran'], '');
+
+    return Scaffold(
+      backgroundColor: bg,
+      body: Column(
+        children: [
+          // ──── HEADER KUNING DENGAN LEKUKAN BERSAMBUNG & FLOATING PERIODE PILL ────
+          Stack(
+            alignment: Alignment.bottomCenter,
+            clipBehavior: Clip.none,
+            children: [
+              _buildCurvedYellowHeader(
+                nama: auth.nama,
+                nim: auth.nim,
+                rataKehadiran: rataKehadiran,
+              ),
+              Positioned(
+                bottom: -18,
+                left: 0,
+                right: 0,
+                child: _buildFloatingPeriodePill(context, isDark),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+
+          // ──── BODY KONTEN ────
+          Expanded(
+            child: FutureBuilder<Map<String, dynamic>>(
+              future: _future,
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting &&
+                    _cachedData == null) {
+                  return const Center(
+                    child: LoadingView(label: 'Memuat rekap presensi...'),
+                  );
+                }
+                if (snap.hasError && _cachedData == null) {
+                  return ErrorRetry(
+                    message: errorText(snap.error!),
+                    onRetry: _reload,
+                  );
+                }
+                if (snap.hasData) {
+                  _cachedData = snap.data;
+                }
+                if (_cachedData == null) {
+                  return const EmptyView(message: 'Data presensi tidak ditemukan');
+                }
+                return RefreshIndicator(
+                  color: AppColors.upiYellowDeep,
+                  backgroundColor:
+                      isDark ? const Color(0xFF1E1E22) : Colors.white,
+                  onRefresh: () async {
+                    _reload();
+                    await _future;
+                  },
+                  child: _body(context, _cachedData!),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ────────────────────────────────────────────────── HEADER KUNING DENGAN LEKUKAN BERSAMBUNG
+  Widget _buildCurvedYellowHeader({
+    required String nama,
+    required String nim,
+    required String rataKehadiran,
+  }) {
+    final canPop = Navigator.of(context).canPop();
+
+    return ClipPath(
+      clipper: const SeamlessWaveClipper(),
+      child: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: _yellowHeaderGradient,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 12, 22, kCurvedHeaderBottomPadding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top Row: Back + Title + Action button (Refresh)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (canPop) ...[
+                          IconButton(
+                            onPressed: () {
+                              Navigator.of(context).maybePop();
+                            },
+                            icon: const Icon(Icons.arrow_back_rounded,
+                                color: Colors.white, size: 24),
+                            tooltip: 'Kembali',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        const Text(
+                          'Presensi Kuliah',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 21,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                    IosBounceTap(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        _reload();
+                        appToast(context, 'Memuat ulang data presensi...');
+                      },
+                      child: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.22),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.10),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.refresh_rounded,
+                            size: 20, color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Profile Avatar + Name & NIM + Rata Kehadiran Badge
+                Row(
+                  children: [
+                    Container(
+                      width: 54,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.18),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.85),
+                          width: 1.8,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Text(
+                          initialsOf(nama),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            nama.isNotEmpty ? nama : 'Mahasiswa UPI YPTK',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 17.5,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.4,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                nim.isNotEmpty ? 'NIM $nim' : '-',
+                                style: const TextStyle(
+                                  color: Color(0xE6FFFFFF),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.22),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  'UPI YPTK',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                              ),
+                              if (rataKehadiran.isNotEmpty && rataKehadiran != '0%')
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.25),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    rataKehadiran,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ────────────────────────────────────────────────── FLOATING PERIODE PILL
+  Widget _buildFloatingPeriodePill(BuildContext context, bool isDark) {
     final activeValue = _periodeOpts.any((o) => o.value == _selectedPeriode)
         ? _selectedPeriode
         : (_periodeOpts.isNotEmpty ? _periodeOpts.first.value : _selectedPeriode);
 
-    return AsyncPage<Map<String, dynamic>>(
-      key: _pageKey,
-      title: 'Presensi Kuliah',
-      subtitle: 'Rekap kehadiran per mata kuliah',
-      load: _load,
-      headerExtras: _periodeOpts.isNotEmpty
-          ? PillDropdown(
-              value: activeValue,
-              hint: 'Pilih Periode',
-              items: [
-                for (final o in _periodeOpts)
-                  DropdownMenuItem<String>(
-                    value: o.value,
-                    child: Text(o.label),
-                  ),
-              ],
-              onChanged: _onSelectPeriode,
-            )
-          : const PeriodeSelector(),
-      builder: (context, data) => _body(context, data),
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E1E22) : Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: isDark
+                  ? Colors.black.withValues(alpha: 0.40)
+                  : Colors.black.withValues(alpha: 0.08),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: _periodeOpts.isNotEmpty
+            ? PillDropdown(
+                value: activeValue,
+                hint: 'Pilih Periode',
+                items: [
+                  for (final o in _periodeOpts)
+                    DropdownMenuItem<String>(
+                      value: o.value,
+                      child: Text(o.label),
+                    ),
+                ],
+                onChanged: _onSelectPeriode,
+              )
+            : const PeriodeSelector(),
+      ),
     );
+  }
+
+  // ────────────────────────────────────────────────── NEUMORPHIC CARD HELPER
+  Widget _buildNeuCard({
+    required BuildContext context,
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
+    VoidCallback? onTap,
+  }) {
+    final isDark = context.isDark;
+    final content = Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF1F5F9),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.35)
+                : const Color(0xFF94A3B8).withValues(alpha: 0.12),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+          if (!isDark)
+            BoxShadow(
+              color: Colors.white.withValues(alpha: 0.9),
+              blurRadius: 10,
+              offset: const Offset(-2, -2),
+            ),
+        ],
+      ),
+      child: child,
+    );
+
+    if (onTap != null) {
+      return IosBounceTap(onTap: onTap, child: content);
+    }
+    return content;
   }
 
   Widget _body(BuildContext context, Map<String, dynamic> data) {
@@ -208,14 +553,14 @@ class _PresensiScreenState extends State<PresensiScreen> {
     }).toList();
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 104),
       children: [
-        // 1. OVERVIEW CARD: DROPDOWN PERIODE & METRIK
+        // 1. OVERVIEW CARD: METRIK & RINGKASAN KEHADIRAN
         _buildOverviewCard(context, data),
 
         const SizedBox(height: 16),
 
-        // 2. SEARCH BAR
+        // 2. SEARCH BAR NEUMORPHIC
         _buildSearchBar(context),
 
         const SizedBox(height: 12),
@@ -238,12 +583,12 @@ class _PresensiScreenState extends State<PresensiScreen> {
           const SizedBox(height: 40),
         ] else ...[
           Padding(
-            padding: const EdgeInsets.only(left: 2, bottom: 10),
+            padding: const EdgeInsets.only(left: 4, bottom: 10),
             child: Text(
               'Menampilkan ${filtered.length} mata kuliah',
               style: TextStyle(
                 fontSize: 12.5,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
                 color: context.textMuted,
               ),
             ),
@@ -251,11 +596,12 @@ class _PresensiScreenState extends State<PresensiScreen> {
           for (final item in filtered) ...[
             _PresensiCard(
               item: item,
+              neuCardBuilder: _buildNeuCard,
               onTap: detailTokenOf(item) != null
                   ? () => _openDetail(item, periode)
                   : null,
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
           ],
         ],
 
@@ -272,110 +618,72 @@ class _PresensiScreenState extends State<PresensiScreen> {
     final pertemuanBerjalan = pickString(metrics, ['pertemuan_berjalan'], '0 Pertemuan');
     final totalAlpa = pickString(metrics, ['alpa'], '0 Alpa');
 
-    final activeValue = _periodeOpts.any((o) => o.value == _selectedPeriode)
-        ? _selectedPeriode
-        : (_periodeOpts.isNotEmpty ? _periodeOpts.first.value : null);
-
     final numVal = double.tryParse(rataKehadiran.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0;
     final Color badgeColor = numVal >= 80
         ? AppColors.green
         : (numVal >= 65 ? AppColors.amber : AppColors.upiYellowDeep);
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: context.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.upiYellowDeep.withValues(alpha: 0.25)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.upiYellowDeep.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+    return _buildNeuCard(
+      context: context,
+      padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                width: 38,
-                height: 38,
+                width: 42,
+                height: 42,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: AppColors.amber.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFFF4D9), Color(0xFFFFE6A8)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.upiYellowDeep.withValues(alpha: 0.15),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
                 child: const Icon(
-                  Icons.calendar_month_rounded,
-                  size: 20,
+                  Icons.pie_chart_rounded,
+                  size: 22,
                   color: AppColors.upiYellowDeep,
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Periode Akademik',
+                      'Statistik Kehadiran',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: context.textPrimary,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      rataKehadiranDesc.isNotEmpty ? rataKehadiranDesc : 'Rekap kumulatif semester ini',
                       style: TextStyle(
                         fontSize: 11,
-                        fontWeight: FontWeight.w600,
                         color: context.textMuted,
                       ),
                     ),
-                    if (_periodeOpts.isNotEmpty)
-                      DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: activeValue,
-                          isExpanded: true,
-                          isDense: true,
-                          dropdownColor: context.card,
-                          borderRadius: BorderRadius.circular(12),
-                          icon: const Icon(
-                            Icons.keyboard_arrow_down_rounded,
-                            size: 20,
-                            color: AppColors.upiYellowDeep,
-                          ),
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w800,
-                            color: context.textPrimary,
-                          ),
-                          items: _periodeOpts.map((o) {
-                            return DropdownMenuItem<String>(
-                              value: o.value,
-                              child: Text(
-                                o.label,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: _onSelectPeriode,
-                        ),
-                      )
-                    else
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          pickString(data, ['periode'], _selectedPeriode ?? '-'),
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w800,
-                            color: context.textPrimary,
-                          ),
-                        ),
-                      ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
               // Badge Rata Kehadiran
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
                 decoration: BoxDecoration(
                   color: badgeColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
@@ -384,13 +692,13 @@ class _PresensiScreenState extends State<PresensiScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.percent_rounded, size: 13, color: badgeColor),
-                    const SizedBox(width: 4),
+                    Icon(Icons.verified_rounded, size: 14, color: badgeColor),
+                    const SizedBox(width: 5),
                     Text(
                       rataKehadiran,
                       style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
                         color: badgeColor,
                       ),
                     ),
@@ -400,17 +708,17 @@ class _PresensiScreenState extends State<PresensiScreen> {
             ],
           ),
 
+          const SizedBox(height: 16),
+          Divider(height: 1, color: context.border.withValues(alpha: 0.5)),
           const SizedBox(height: 14),
-          const Divider(height: 1),
-          const SizedBox(height: 12),
 
-          // Metrik Ringkas: Kehadiran, Pertemuan Berjalan, Mata Kuliah, Alpa
+          // Metrik 4 Kolom: Rata Kehadiran, Pertemuan Berjalan, Mata Kuliah, Alpa
           Row(
             children: [
               Expanded(
                 child: _statItem(
                   context,
-                  label: 'Rata Kehadiran',
+                  label: 'Kehadiran',
                   value: rataKehadiran,
                   icon: Icons.check_circle_outline_rounded,
                   color: AppColors.green,
@@ -448,17 +756,6 @@ class _PresensiScreenState extends State<PresensiScreen> {
               ),
             ],
           ),
-          if (rataKehadiranDesc.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(
-              '* $rataKehadiranDesc',
-              style: TextStyle(
-                fontSize: 10.5,
-                fontStyle: FontStyle.italic,
-                color: context.textMuted,
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -471,19 +768,22 @@ class _PresensiScreenState extends State<PresensiScreen> {
     required IconData icon,
     required Color color,
   }) {
+    final isDark = context.isDark;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: context.softFill,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: context.border),
+        color: isDark ? const Color(0xFF222226) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2E2E32) : const Color(0xFFE2E8F0),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 12.5, color: color),
+              Icon(icon, size: 13, color: color),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
@@ -492,20 +792,20 @@ class _PresensiScreenState extends State<PresensiScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 10,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                     color: context.textMuted,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 5),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 12.5,
               fontWeight: FontWeight.w800,
               color: context.textPrimary,
             ),
@@ -516,11 +816,24 @@ class _PresensiScreenState extends State<PresensiScreen> {
   }
 
   Widget _buildSearchBar(BuildContext context) {
+    final isDark = context.isDark;
     return Container(
       decoration: BoxDecoration(
-        color: context.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: context.border),
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE2E8F0),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.30)
+                : const Color(0xFF94A3B8).withValues(alpha: 0.10),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: TextField(
         controller: _searchCtrl,
@@ -533,7 +846,7 @@ class _PresensiScreenState extends State<PresensiScreen> {
         decoration: InputDecoration(
           hintText: 'Cari mata kuliah atau kode...',
           hintStyle: TextStyle(fontSize: 13, color: context.textMuted),
-          prefixIcon: Icon(Icons.search_rounded, size: 20, color: context.textMuted),
+          prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.upiYellowDeep),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
                   icon: const Icon(Icons.clear_rounded, size: 18),
@@ -571,6 +884,7 @@ class _PresensiScreenState extends State<PresensiScreen> {
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
       child: Row(
         children: filters.map((f) {
           final key = f['key'] as String;
@@ -581,23 +895,34 @@ class _PresensiScreenState extends State<PresensiScreen> {
 
           return Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: InkWell(
+            child: IosBounceTap(
               onTap: () {
+                HapticFeedback.selectionClick();
                 setState(() {
                   _selectedProgres = key;
                 });
               },
-              borderRadius: BorderRadius.circular(20),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5.5),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
                 decoration: BoxDecoration(
                   color: isSelected
                       ? color
-                      : color.withValues(alpha: context.isDark ? 0.12 : 0.07),
-                  borderRadius: BorderRadius.circular(20),
+                      : color.withValues(alpha: context.isDark ? 0.12 : 0.08),
+                  borderRadius: BorderRadius.circular(22),
                   border: Border.all(
                     color: isSelected ? color : color.withValues(alpha: 0.25),
+                    width: 1.2,
                   ),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: color.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ]
+                      : null,
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -606,16 +931,16 @@ class _PresensiScreenState extends State<PresensiScreen> {
                       label,
                       style: TextStyle(
                         fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                         color: isSelected ? Colors.white : color,
                       ),
                     ),
-                    const SizedBox(width: 5),
+                    const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? Colors.white.withValues(alpha: 0.25)
+                            ? Colors.white.withValues(alpha: 0.28)
                             : color.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -639,36 +964,31 @@ class _PresensiScreenState extends State<PresensiScreen> {
   }
 
   Widget _buildEmptyState(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: context.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: context.border),
-      ),
+    return _buildNeuCard(
+      context: context,
+      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
       child: Column(
         children: [
           Container(
-            width: 50,
-            height: 50,
+            width: 56,
+            height: 56,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: AppColors.amber.withValues(alpha: 0.12),
+              color: AppColors.amber.withValues(alpha: 0.14),
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.fact_check_outlined,
-              size: 26,
+              size: 28,
               color: AppColors.upiYellowDeep,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Text(
             'Presensi Tidak Ditemukan',
             style: TextStyle(
-              fontSize: 14.5,
-              fontWeight: FontWeight.w700,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
               color: context.textPrimary,
             ),
           ),
@@ -678,7 +998,7 @@ class _PresensiScreenState extends State<PresensiScreen> {
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 12.5, color: context.textMuted),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           FilledButton.icon(
             onPressed: () {
               _searchCtrl.clear();
@@ -689,13 +1009,16 @@ class _PresensiScreenState extends State<PresensiScreen> {
             },
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.upiYellowDeep,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
               ),
+              elevation: 2,
             ),
             icon: const Icon(Icons.refresh_rounded, size: 16),
-            label: const Text('Reset Filter', style: TextStyle(fontSize: 12.5)),
+            label: const Text('Reset Filter',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -705,9 +1028,19 @@ class _PresensiScreenState extends State<PresensiScreen> {
 
 /// Kartu Presensi Mata Kuliah yang rapi, informatif, dan interaktif
 class _PresensiCard extends StatelessWidget {
-  const _PresensiCard({required this.item, this.onTap});
+  const _PresensiCard({
+    required this.item,
+    required this.neuCardBuilder,
+    this.onTap,
+  });
 
   final Map<String, dynamic> item;
+  final Widget Function({
+    required BuildContext context,
+    required Widget child,
+    EdgeInsetsGeometry padding,
+    VoidCallback? onTap,
+  }) neuCardBuilder;
   final VoidCallback? onTap;
 
   Color _percentColor(double v) {
@@ -747,22 +1080,34 @@ class _PresensiCard extends StatelessWidget {
       statusColor = AppColors.grey;
     }
 
-    return SurfaceCard(
+    return neuCardBuilder(
+      context: context,
+      padding: const EdgeInsets.all(16),
       onTap: onTap,
-      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Ikon Kuliah
+              // Ikon Kuliah Neumorphic
               Container(
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: AppColors.upiYellowDeep.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFFF7E6), Color(0xFFFFE8B2)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.upiYellowDeep.withValues(alpha: 0.12),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: const Icon(
                   Icons.fact_check_outlined,
@@ -780,41 +1125,62 @@ class _PresensiCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 14.5,
                         fontWeight: FontWeight.w800,
                         color: context.textPrimary,
                         height: 1.25,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 4),
                     Wrap(
                       spacing: 6,
                       runSpacing: 4,
                       children: [
                         if (kode.isNotEmpty)
-                          Text(
-                            kode,
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.upiYellowDeep,
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: AppColors.upiYellowDeep.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              kode,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.upiYellowDeep,
+                              ),
                             ),
                           ),
                         if (kelas.isNotEmpty)
-                          Text(
-                            '• Kelas $kelas',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                              color: context.textMuted,
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: context.softFill,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'Kelas $kelas',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: context.textMuted,
+                              ),
                             ),
                           ),
                         if (info.isNotEmpty)
-                          Text(
-                            '• $info',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              color: context.textMuted,
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: context.softFill,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              info,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: context.textMuted,
+                              ),
                             ),
                           ),
                       ],
@@ -829,7 +1195,7 @@ class _PresensiCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: _percentColor(persen).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: _percentColor(persen).withValues(alpha: 0.25)),
+                  border: Border.all(color: _percentColor(persen).withValues(alpha: 0.3)),
                 ),
                 child: Text(
                   persenRaw.contains('%') ? persenRaw : '$persenRaw%',
@@ -843,7 +1209,7 @@ class _PresensiCard extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
 
           // Baris Progress Pertemuan
           Row(
@@ -880,15 +1246,15 @@ class _PresensiCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: (persen / 100).clamp(0.0, 1.0),
-              minHeight: 5.5,
+              minHeight: 6,
               backgroundColor: context.softFill,
               valueColor: AlwaysStoppedAnimation(_percentColor(persen)),
             ),
           ),
 
+          const SizedBox(height: 12),
+          Divider(height: 1, color: context.border.withValues(alpha: 0.5)),
           const SizedBox(height: 10),
-          const Divider(height: 1),
-          const SizedBox(height: 8),
 
           // Baris Jadwal & Dosen & Arrow
           Row(
@@ -917,18 +1283,18 @@ class _PresensiCard extends StatelessWidget {
                 const Spacer(),
 
               if (onTap != null)
-                Row(
+                const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       '16 Sesi',
                       style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
                         color: AppColors.upiYellowDeep,
                       ),
                     ),
-                    const SizedBox(width: 2),
+                    SizedBox(width: 2),
                     Icon(
                       Icons.chevron_right_rounded,
                       size: 18,

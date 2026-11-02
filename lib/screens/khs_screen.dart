@@ -1,14 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../services/api_client.dart';
+import '../state/auth_provider.dart';
 import '../theme/app_theme.dart';
+import '../utils/format.dart';
 import '../utils/smart.dart';
-import '../widgets/async_page.dart';
 import '../widgets/common.dart';
-import '../widgets/gradient_header.dart';
 import '../widgets/periode_dropdown.dart';
 import 'khs_cetak_screen.dart';
+
+// ── UPI YPTK Academic Gold Gradient ──
+const _yellowHeaderGradient = [
+  Color(0xFFE5A620), // Bright Academic Gold
+  Color(0xFFD48B08), // UPI Yellow
+  Color(0xFFB87500), // Deep Academic Gold
+];
 
 /// Kartu Hasil Studi (KHS) per semester:
 /// - Dropdown pilihan semester (ID numerik khas KHS)
@@ -17,6 +25,7 @@ import 'khs_cetak_screen.dart';
 /// - Pencarian real-time & filter grade
 /// - Daftar kartu mata kuliah terstruktur
 /// - Lembar cetak KHS resmi terintegrasi (native preview & PDF)
+/// Berdesain Seamless Wave Header & Neumorphic UI.
 class KhsScreen extends StatefulWidget {
   const KhsScreen({super.key});
 
@@ -25,15 +34,27 @@ class KhsScreen extends StatefulWidget {
 }
 
 class _KhsScreenState extends State<KhsScreen> {
-  final _pageKey = GlobalKey<AsyncPageState<Map<String, dynamic>>>();
   final TextEditingController _searchCtrl = TextEditingController();
 
   String? _chosen;
   List<PeriodeOption> _opts = [];
   String _searchQuery = '';
-  String _selectedGradeFilter = 'all'; // all, A, B, C, etc.
-  Map<String, dynamic>? _lastLoadedData;
+  String _selectedGradeFilter = 'all'; // all, A, B, C, D/E
+  Map<String, dynamic>? _cachedData;
+  Future<Map<String, dynamic>>? _future;
   bool _isLoadingSemester = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _reload();
+  }
+
+  void _reload() {
+    setState(() {
+      _future = _load();
+    });
+  }
 
   @override
   void dispose() {
@@ -45,189 +66,183 @@ class _KhsScreenState extends State<KhsScreen> {
     try {
       final api = context.read<ApiClient>();
 
-    // 1. Ambil daftar periode KHS
-    String? defaultSelectedId;
-    try {
-      final pl = await api.get('/api/akademik/khs/periode');
-      if (pl is Map) {
-        final pData = pl['data'] ?? pl;
-        final pList = (pData is Map ? pData['periode'] : null) ??
-            (pData is List ? pData : null);
-        if (pList is List) {
-          final customOpts = <PeriodeOption>[];
-          for (final item in pList) {
-            if (item is Map) {
-              final m = asMap(item);
-              final id = pickString(m, ['id', 'kode', 'value'], '');
-              final label = pickString(m, ['label', 'nama', 'periode'], id);
-              if (id.isNotEmpty) {
-                customOpts.add(PeriodeOption(value: id, label: label));
-                if (m['selected'] == true) {
-                  defaultSelectedId = id;
+      // 1. Ambil daftar periode KHS
+      String? defaultSelectedId;
+      try {
+        final pl = await api.get('/api/akademik/khs/periode');
+        if (pl is Map) {
+          final pData = pl['data'] ?? pl;
+          final pList = (pData is Map ? pData['periode'] : null) ??
+              (pData is List ? pData : null);
+          if (pList is List) {
+            final customOpts = <PeriodeOption>[];
+            for (final item in pList) {
+              if (item is Map) {
+                final m = asMap(item);
+                final id = pickString(m, ['id', 'kode', 'value'], '');
+                final label = pickString(m, ['label', 'nama', 'periode'], id);
+                if (id.isNotEmpty) {
+                  customOpts.add(PeriodeOption(value: id, label: label));
+                  if (m['selected'] == true) {
+                    defaultSelectedId = id;
+                  }
                 }
               }
             }
-          }
-          if (customOpts.isNotEmpty) {
-            _opts = customOpts;
+            if (customOpts.isNotEmpty) {
+              _opts = customOpts;
+            }
           }
         }
+        if (_opts.isEmpty) {
+          final parsed = parsePeriode(pl);
+          if (parsed.isNotEmpty) _opts = parsed;
+        }
+      } catch (_) {
+        // Abaikan jika sudah ada opsi
       }
-      if (_opts.isEmpty) {
-        final parsed = parsePeriode(pl);
-        if (parsed.isNotEmpty) _opts = parsed;
-      }
-    } catch (_) {
-      // Abaikan jika sudah ada opsi
-    }
 
-    _chosen ??=
-        defaultSelectedId ?? (_opts.isNotEmpty ? _opts.first.value : null);
-    final p = _chosen ?? (_opts.isNotEmpty ? _opts.first.value : null);
+      _chosen ??=
+          defaultSelectedId ?? (_opts.isNotEmpty ? _opts.first.value : null);
+      final p = _chosen ?? (_opts.isNotEmpty ? _opts.first.value : null);
 
-    // 2. Ambil data KHS:
-    // PENTING: Endpoint biasa /api/akademik/khs sering menghasilkan nilai kosong
-    // atau _error_data. Karena itu, utamakan endpoint yang LENGKAP:
-    // Prioritas 1: /api/akademik/khs/cetak (data resmi siap tampil: nilai, mutu, bobot, status, signatures, url)
-    // Prioritas 2: /api/akademik/khs/data (endpoint AJAX dengan rows & student)
-    // Prioritas 3 (Fallback terakhir): /api/akademik/khs
-    Map<String, dynamic> khsPayload = {};
+      // 2. Ambil data KHS
+      Map<String, dynamic> khsPayload = {};
 
-    // Prioritas 1: /api/akademik/khs/cetak
-    try {
-      final cetakResp = await api.get(
-        '/api/akademik/khs/cetak',
-        query: p != null ? {'periode': p} : null,
-      );
-      final cMap =
-          asMap(cetakResp is Map ? (cetakResp['data'] ?? cetakResp) : cetakResp);
-      final mks = cMap['mata_kuliah'];
-      if (mks is List && mks.isNotEmpty) {
-        khsPayload = cMap;
-      }
-    } catch (_) {}
-
-    // Prioritas 2: /api/akademik/khs/data
-    if (khsPayload.isEmpty ||
-        (khsPayload['mata_kuliah'] is! List ||
-            (khsPayload['mata_kuliah'] as List).isEmpty)) {
+      // Prioritas 1: /api/akademik/khs/cetak
       try {
-        final dataResp = await api.get(
-          '/api/akademik/khs/data',
+        final cetakResp = await api.get(
+          '/api/akademik/khs/cetak',
           query: p != null ? {'periode': p} : null,
         );
-        final dMap =
-            asMap(dataResp is Map ? (dataResp['data'] ?? dataResp) : dataResp);
-        final innerData = asMap(dMap['data']);
-        final rows = innerData['rows'];
-        if (rows is List && rows.isNotEmpty) {
-          final student = asMap(innerData['student']);
-          final summary = asMap(innerData['summary']);
-          final periodInfo = asMap(innerData['period']);
+        final cMap =
+            asMap(cetakResp is Map ? (cetakResp['data'] ?? cetakResp) : cetakResp);
+        final mks = cMap['mata_kuliah'];
+        if (mks is List && mks.isNotEmpty) {
+          khsPayload = cMap;
+        }
+      } catch (_) {}
 
-          final normalizedMk = <Map<String, dynamic>>[];
-          for (int i = 0; i < rows.length; i++) {
-            final r = asMap(rows[i]);
-            normalizedMk.add({
-              'no': (i + 1).toString(),
-              'kode': pickString(r, ['kode_mk'], ''),
-              'nama': pickString(r, ['nama_mk'], ''),
-              'nama_en': pickString(r, ['nama_english'], ''),
-              'sks': pickString(r, ['sks'], '0'),
-              'nilai_angka': pickString(r, ['nilai_akhir'], '-'),
-              'grade': pickString(r, ['grade'], '-'),
-              'bobot': pickString(r, ['bobot'], '-'),
-              'mutu': pickString(r, ['mutu'], '-'),
-              'status': (r['lulus'] == true) ? 'Lulus' : 'Tidak Lulus',
-              'semester': pickString(r, ['semester'], ''),
-            });
-          }
+      // Prioritas 2: /api/akademik/khs/data
+      if (khsPayload.isEmpty ||
+          (khsPayload['mata_kuliah'] is! List ||
+              (khsPayload['mata_kuliah'] as List).isEmpty)) {
+        try {
+          final dataResp = await api.get(
+            '/api/akademik/khs/data',
+            query: p != null ? {'periode': p} : null,
+          );
+          final dMap =
+              asMap(dataResp is Map ? (dataResp['data'] ?? dataResp) : dataResp);
+          final innerData = asMap(dMap['data']);
+          final rows = innerData['rows'];
+          if (rows is List && rows.isNotEmpty) {
+            final student = asMap(innerData['student']);
+            final summary = asMap(innerData['summary']);
+            final periodInfo = asMap(innerData['period']);
 
-          khsPayload = {
-            'judul': 'KARTU HASIL STUDI (KHS)',
-            'periode': pickString(periodInfo, ['label', 'periode'], p ?? ''),
-            'mahasiswa': {
-              'nama': pickString(student, ['nama'], ''),
-              'nim': pickString(student, ['nim'], ''),
-              'program_studi': pickString(student, ['program_studi'], ''),
-              'fakultas': pickString(student, ['fakultas'], ''),
-              'program_kelas':
-                  '${pickString(student, ['program'], '')} / ${pickString(student, ['kelas'], '')}'
-                      .trim(),
-              'dosen_pa': pickString(student, ['dosen_pa'], ''),
-              'angkatan': pickString(student, ['angkatan'], ''),
-            },
-            'mata_kuliah': normalizedMk,
-            'summary': {
-              'ips': pickString(summary, ['ips'], '0,00'),
-              'total_sks':
-                  pickString(summary, ['total_sks', 'passed_sks'], '0'),
-              'total_mutu': pickString(summary, ['total_mutu'], '0'),
-            },
-            'signatures': [
-              if (pickString(student, ['dosen_pa'], '').isNotEmpty)
-                {
-                  'label': 'Dosen Pembimbing Akademik,',
-                  'nama': pickString(student, ['dosen_pa'], ''),
-                  'keterangan': 'Dosen Pembimbing Akademik',
-                },
-              {
-                'label': 'Mahasiswa,',
+            final normalizedMk = <Map<String, dynamic>>[];
+            for (int i = 0; i < rows.length; i++) {
+              final r = asMap(rows[i]);
+              normalizedMk.add({
+                'no': (i + 1).toString(),
+                'kode': pickString(r, ['kode_mk'], ''),
+                'nama': pickString(r, ['nama_mk'], ''),
+                'nama_en': pickString(r, ['nama_english'], ''),
+                'sks': pickString(r, ['sks'], '0'),
+                'nilai_angka': pickString(r, ['nilai_akhir'], '-'),
+                'grade': pickString(r, ['grade'], '-'),
+                'bobot': pickString(r, ['bobot'], '-'),
+                'mutu': pickString(r, ['mutu'], '-'),
+                'status': (r['lulus'] == true) ? 'Lulus' : 'Tidak Lulus',
+                'semester': pickString(r, ['semester'], ''),
+              });
+            }
+
+            khsPayload = {
+              'judul': 'KARTU HASIL STUDI (KHS)',
+              'periode': pickString(periodInfo, ['label', 'periode'], p ?? ''),
+              'mahasiswa': {
                 'nama': pickString(student, ['nama'], ''),
-                'keterangan': 'NIM. ${pickString(student, ['nim'], '')}',
+                'nim': pickString(student, ['nim'], ''),
+                'program_studi': pickString(student, ['program_studi'], ''),
+                'fakultas': pickString(student, ['fakultas'], ''),
+                'program_kelas':
+                    '${pickString(student, ['program'], '')} / ${pickString(student, ['kelas'], '')}'
+                        .trim(),
+                'dosen_pa': pickString(student, ['dosen_pa'], ''),
+                'angkatan': pickString(student, ['angkatan'], ''),
               },
-            ],
-          };
-        }
-      } catch (_) {}
-    }
+              'mata_kuliah': normalizedMk,
+              'summary': {
+                'ips': pickString(summary, ['ips'], '0,00'),
+                'total_sks':
+                    pickString(summary, ['total_sks', 'passed_sks'], '0'),
+                'total_mutu': pickString(summary, ['total_mutu'], '0'),
+              },
+              'signatures': [
+                if (pickString(student, ['dosen_pa'], '').isNotEmpty)
+                  {
+                    'label': 'Dosen Pembimbing Akademik,',
+                    'nama': pickString(student, ['dosen_pa'], ''),
+                    'keterangan': 'Dosen Pembimbing Akademik',
+                  },
+                {
+                  'label': 'Mahasiswa,',
+                  'nama': pickString(student, ['nama'], ''),
+                  'keterangan': 'NIM. ${pickString(student, ['nim'], '')}',
+                },
+              ],
+            };
+          }
+        } catch (_) {}
+      }
 
-    // Prioritas 3 (Fallback terakhir): /api/akademik/khs
-    if (khsPayload.isEmpty ||
-        (khsPayload['mata_kuliah'] is! List ||
-            (khsPayload['mata_kuliah'] as List).isEmpty)) {
-      try {
-        final rawResp = await api.get(
-          '/api/akademik/khs',
-          query: p != null ? {'periode': p} : null,
-        );
-        final rMap =
-            asMap(rawResp is Map ? (rawResp['data'] ?? rawResp) : rawResp);
-        final listCheck = rMap['mata_kuliah'] ?? rMap['nilai'];
-        if (listCheck is List && listCheck.isNotEmpty) {
-          khsPayload = rMap;
-        } else if (khsPayload.isEmpty) {
-          khsPayload = rMap;
-        }
-      } catch (_) {}
-    }
+      // Prioritas 3 (Fallback): /api/akademik/khs
+      if (khsPayload.isEmpty ||
+          (khsPayload['mata_kuliah'] is! List ||
+              (khsPayload['mata_kuliah'] as List).isEmpty)) {
+        try {
+          final rawResp = await api.get(
+            '/api/akademik/khs',
+            query: p != null ? {'periode': p} : null,
+          );
+          final rMap =
+              asMap(rawResp is Map ? (rawResp['data'] ?? rawResp) : rawResp);
+          final listCheck = rMap['mata_kuliah'] ?? rMap['nilai'];
+          if (listCheck is List && listCheck.isNotEmpty) {
+            khsPayload = rMap;
+          } else if (khsPayload.isEmpty) {
+            khsPayload = rMap;
+          }
+        } catch (_) {}
+      }
 
-    // Ekstrak opsi periode_tersedia jika ada di payload
-    if (khsPayload['periode_tersedia'] is List) {
-      final list = <PeriodeOption>[];
-      for (final e in (khsPayload['periode_tersedia'] as List)) {
-        if (e is Map) {
-          final m = asMap(e);
-          final id = pickString(m, ['id', 'kode', 'value'], '');
-          final label = pickString(m, ['label', 'nama', 'periode'], id);
-          if (id.isNotEmpty) {
-            list.add(PeriodeOption(value: id, label: label));
+      // Ekstrak opsi periode_tersedia jika ada di payload
+      if (khsPayload['periode_tersedia'] is List) {
+        final list = <PeriodeOption>[];
+        for (final e in (khsPayload['periode_tersedia'] as List)) {
+          if (e is Map) {
+            final m = asMap(e);
+            final id = pickString(m, ['id', 'kode', 'value'], '');
+            final label = pickString(m, ['label', 'nama', 'periode'], id);
+            if (id.isNotEmpty) {
+              list.add(PeriodeOption(value: id, label: label));
+            }
           }
         }
+        if (list.isNotEmpty && _opts.isEmpty) {
+          _opts = list;
+        }
       }
-      if (list.isNotEmpty && _opts.isEmpty) {
-        _opts = list;
+
+      final res = {'opts': _opts, 'data': khsPayload, 'periode': p};
+      if (mounted) {
+        setState(() {
+          _cachedData = res;
+        });
       }
-    }
-
-    // Pastikan dropdown di header ikut ter-refresh
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() {});
-    });
-
-    final res = {'opts': _opts, 'data': khsPayload, 'periode': p};
-    _lastLoadedData = khsPayload;
-    return res;
+      return res;
     } finally {
       if (mounted) {
         setState(() {
@@ -261,12 +276,13 @@ class _KhsScreenState extends State<KhsScreen> {
           await api.get('/api/akademik/khs/cetak-url', query: {'periode': p});
       final url =
           deepFind(resp, ['cetak_url', 'url', 'link', 'file'])?.toString();
+      if (!mounted) return;
+
       if (url == null || !url.startsWith('http')) {
-        // Fallback: buka halaman cetak internal
         _bukaLembarCetak();
         return;
       }
-      if (mounted) await openExternal(context, url);
+      await openExternal(context, url);
     } catch (e) {
       if (mounted) {
         _bukaLembarCetak();
@@ -278,11 +294,11 @@ class _KhsScreenState extends State<KhsScreen> {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -290,13 +306,13 @@ class _KhsScreenState extends State<KhsScreen> {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: AppColors.amber.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(Icons.print_rounded,
-                        color: AppColors.upiYellowDeep, size: 20),
+                        color: AppColors.upiYellowDeep, size: 22),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -306,12 +322,12 @@ class _KhsScreenState extends State<KhsScreen> {
                         const Text(
                           'Pilihan Cetak KHS',
                           style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                         Text(
-                          'Periode ${_chosen ?? '-'}',
+                          'Semester ${_chosen ?? '-'}',
                           style: TextStyle(fontSize: 12, color: ctx.textMuted),
                         ),
                       ],
@@ -319,21 +335,21 @@ class _KhsScreenState extends State<KhsScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: AppColors.upiYellowDeep.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.description_rounded,
                       color: AppColors.upiYellowDeep),
                 ),
                 title: const Text('Pratinjau Lembar Cetak Resmi KHS',
                     style:
-                        TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                        TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
                 subtitle: const Text(
                     'Tampilan kertas resmi universitas siap cetak PDF langsung.',
                     style: TextStyle(fontSize: 11.5)),
@@ -350,14 +366,14 @@ class _KhsScreenState extends State<KhsScreen> {
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: AppColors.blue.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.open_in_browser_rounded,
                       color: AppColors.blue),
                 ),
                 title: const Text('Buka Lembar Web SIAKAD',
                     style:
-                        TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                        TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
                 subtitle: const Text('Buka halaman cetak bawaan web kampus.',
                     style: TextStyle(fontSize: 11.5)),
                 trailing: const Icon(Icons.chevron_right_rounded),
@@ -375,127 +391,383 @@ class _KhsScreenState extends State<KhsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return AsyncPage<Map<String, dynamic>>(
-      key: _pageKey,
-      title: 'Kartu Hasil Studi',
-      subtitle: 'Nilai dan prestasi akademik per semester',
-      load: _load,
-      headerActions: [
-        HeaderActionButton(
-          icon: Icons.print_rounded,
-          tooltip: 'Cetak KHS',
-          onPressed: () {
-            _showCetakMenu(_lastLoadedData ?? {});
-          },
-        ),
-        HeaderActionButton(
-          icon: Icons.refresh_rounded,
-          tooltip: 'Muat Ulang',
-          onPressed: _isLoadingSemester
-              ? null
-              : () {
-                  setState(() => _isLoadingSemester = true);
-                  _pageKey.currentState?.reload();
-                },
-        ),
-      ],
-      headerExtras: PillDropdown(
-        value: _opts.any((o) => o.value == _chosen)
-            ? _chosen
-            : (_opts.isNotEmpty ? _opts.first.value : null),
-        hint: 'Pilih Semester',
-        items: [
-          for (final o in _opts)
-            DropdownMenuItem<String>(
-              value: o.value,
-              child: Text(
-                o.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+    final auth = context.watch<AuthProvider>();
+    final isDark = context.isDark;
+    final bg = isDark ? const Color(0xFF000000) : const Color(0xFFF9FAFB);
+
+    final rawPayload = asMap(_cachedData?['data']);
+    final summary = asMap(rawPayload['summary']);
+    final ips = pickString(summary, ['ips', 'ip'], '');
+
+    return Scaffold(
+      backgroundColor: bg,
+      body: Column(
+        children: [
+          // ──── HEADER KUNING DENGAN LEKUKAN BERSAMBUNG & FLOATING SEMESTER PILL ────
+          Stack(
+            alignment: Alignment.bottomCenter,
+            clipBehavior: Clip.none,
+            children: [
+              _buildCurvedYellowHeader(
+                nama: auth.nama,
+                nim: auth.nim,
+                ips: ips,
               ),
+              Positioned(
+                bottom: -18,
+                left: 0,
+                right: 0,
+                child: _buildFloatingSemesterPill(context, isDark),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+
+          // ──── BODY KONTEN ────
+          Expanded(
+            child: FutureBuilder<Map<String, dynamic>>(
+              future: _future,
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting &&
+                    _cachedData == null) {
+                  return const Center(
+                    child: LoadingView(label: 'Memuat nilai KHS...'),
+                  );
+                }
+                if (snap.hasError && _cachedData == null) {
+                  return ErrorRetry(
+                    message: errorText(snap.error!),
+                    onRetry: _reload,
+                  );
+                }
+                if (snap.hasData) {
+                  _cachedData = snap.data;
+                }
+                if (_cachedData == null) {
+                  return const EmptyView(message: 'Data KHS tidak ditemukan');
+                }
+                return RefreshIndicator(
+                  color: AppColors.upiYellowDeep,
+                  backgroundColor:
+                      isDark ? const Color(0xFF1E1E22) : Colors.white,
+                  onRefresh: () async {
+                    _reload();
+                    await _future;
+                  },
+                  child: _buildContent(context, _cachedData!),
+                );
+              },
             ),
+          ),
         ],
-        onChanged: (v) {
-          if (_isLoadingSemester) return;
-          if (v == null || v == _chosen) return;
-          setState(() {
-            _chosen = v;
-            _searchQuery = '';
-            _selectedGradeFilter = 'all';
-            _isLoadingSemester = true;
-          });
-          _pageKey.currentState?.reload();
-        },
       ),
-      builder: (context, data) {
-        if (_isLoadingSemester) {
-          final selectedLabel = _opts
-              .firstWhere(
-                (o) => o.value == _chosen,
-                orElse: () => PeriodeOption(value: '', label: _chosen ?? ''),
-              )
-              .label;
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 64),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppColors.amber.withValues(alpha: 0.12),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const SizedBox(
-                      width: 34,
-                      height: 34,
-                      child: CircularProgressIndicator(
-                        color: AppColors.upiYellowDeep,
-                        strokeWidth: 3,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Text(
-                    'Memuat KHS...',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: context.textPrimary,
-                    ),
-                  ),
-                  if (selectedLabel.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      selectedLabel,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.upiYellowDeep,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 6),
-                  Text(
-                    'Mengambil daftar nilai dan prestasi akademik',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: context.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-        return _buildContent(context, data);
-      },
     );
   }
 
+  // ────────────────────────────────────────────────── HEADER KUNING DENGAN LEKUKAN BERSAMBUNG
+  Widget _buildCurvedYellowHeader({
+    required String nama,
+    required String nim,
+    required String ips,
+  }) {
+    final canPop = Navigator.of(context).canPop();
+
+    return ClipPath(
+      clipper: const SeamlessWaveClipper(),
+      child: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: _yellowHeaderGradient,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 12, 22, kCurvedHeaderBottomPadding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top Row: Back + Title + Action buttons (Cetak & Refresh)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (canPop) ...[
+                          IconButton(
+                            onPressed: () {
+                              Navigator.of(context).maybePop();
+                            },
+                            icon: const Icon(Icons.arrow_back_rounded,
+                                color: Colors.white, size: 24),
+                            tooltip: 'Kembali',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        const Text(
+                          'Kartu Hasil Studi',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 21,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          onPressed: () {
+                            HapticFeedback.selectionClick();
+                            _showCetakMenu(_cachedData?['data'] ?? {});
+                          },
+                          icon: const Icon(Icons.print_rounded,
+                              color: Colors.white, size: 22),
+                          tooltip: 'Cetak KHS',
+                          splashRadius: 20,
+                          padding: const EdgeInsets.all(6),
+                          constraints: const BoxConstraints(),
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          onPressed: _isLoadingSemester
+                              ? null
+                              : () {
+                                  HapticFeedback.selectionClick();
+                                  _reload();
+                                },
+                          icon: const Icon(Icons.refresh_rounded,
+                              color: Colors.white, size: 22),
+                          tooltip: 'Muat Ulang',
+                          splashRadius: 20,
+                          padding: const EdgeInsets.all(6),
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // Student Identity Row
+                Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.22),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.85),
+                          width: 1.8,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Text(
+                          initialsOf(nama),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            nama.isNotEmpty ? nama : 'Mahasiswa UPI YPTK',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16.5,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                nim.isNotEmpty ? 'NIM $nim' : '-',
+                                style: const TextStyle(
+                                  color: Color(0xE6FFFFFF),
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w500,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.22),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  'KHS',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.4,
+                                  ),
+                                ),
+                              ),
+                              if (ips.isNotEmpty && ips != '-')
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.25),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    'IPS: $ips',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ────────────────────────────────────────────────── FLOATING SEMESTER PILL
+  Widget _buildFloatingSemesterPill(BuildContext context, bool isDark) {
+    final activeValue = _opts.any((o) => o.value == _chosen)
+        ? _chosen
+        : (_opts.isNotEmpty ? _opts.first.value : null);
+
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E1E22) : Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: isDark
+                  ? Colors.black.withValues(alpha: 0.40)
+                  : Colors.black.withValues(alpha: 0.08),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: PillDropdown(
+          value: activeValue,
+          hint: 'Pilih Semester',
+          items: [
+            for (final o in _opts)
+              DropdownMenuItem<String>(
+                value: o.value,
+                child: Text(
+                  o.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+          onChanged: (v) {
+            if (_isLoadingSemester) return;
+            if (v == null || v == _chosen) return;
+            HapticFeedback.selectionClick();
+            setState(() {
+              _chosen = v;
+              _searchQuery = '';
+              _selectedGradeFilter = 'all';
+              _isLoadingSemester = true;
+              _cachedData = null;
+            });
+            _reload();
+          },
+        ),
+      ),
+    );
+  }
+
+  // ────────────────────────────────────────────────── NEUMORPHIC CARD HELPER
+  Widget _buildNeuCard({
+    required BuildContext context,
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
+    VoidCallback? onTap,
+  }) {
+    final isDark = context.isDark;
+    final content = Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF1F5F9),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.35)
+                : const Color(0xFF94A3B8).withValues(alpha: 0.12),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+          if (!isDark)
+            BoxShadow(
+              color: Colors.white.withValues(alpha: 0.9),
+              blurRadius: 10,
+              offset: const Offset(-2, -2),
+            ),
+        ],
+      ),
+      child: child,
+    );
+
+    if (onTap != null) {
+      return IosBounceTap(onTap: onTap, child: content);
+    }
+    return content;
+  }
+
+  // ────────────────────────────────────────────────── CONTENT BUILDER
   Widget _buildContent(BuildContext context, Map<String, dynamic> payload) {
     final data = asMap(payload['data']);
     if (data.isEmpty) {
@@ -563,67 +835,69 @@ class _KhsScreenState extends State<KhsScreen> {
           kelas.contains(q);
     }).toList();
 
-    return RefreshIndicator(
-      onRefresh: () async => _pageKey.currentState?.reload(),
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // 1. Hero Card: Identitas Mahasiswa & Pencapaian Indeks Prestasi
-          _buildHeroCard(context, data),
-          const SizedBox(height: 14),
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 104),
+      children: [
+        // 1. Hero Card: Identitas Mahasiswa & Pencapaian Indeks Prestasi
+        _buildHeroCard(context, data),
+        const SizedBox(height: 14),
 
-          // 2. Visualisasi Distribusi Grade Nilai
-          if (rawList.isNotEmpty) ...[
-            _buildGradeDistribution(context, gradeCounts, rawList.length),
-            const SizedBox(height: 16),
+        // 2. Visualisasi Distribusi Grade Nilai
+        if (rawList.isNotEmpty) ...[
+          _buildGradeDistribution(context, gradeCounts, rawList.length),
+          const SizedBox(height: 16),
+        ],
+
+        // 3. Search Bar & Filter Chips
+        _buildSearchAndFilters(
+          context,
+          totalCount: rawList.length,
+          gradeCounts: gradeCounts,
+        ),
+        const SizedBox(height: 14),
+
+        // 4. Daftar Mata Kuliah & Nilai
+        if (filteredList.isEmpty)
+          _buildNeuCard(
+            context: context,
+            padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.search_off_rounded,
+                  size: 44,
+                  color: context.textMuted.withValues(alpha: 0.5),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  rawList.isEmpty
+                      ? 'Belum ada rincian nilai mata kuliah untuk semester ini.'
+                      : 'Tidak ada mata kuliah yang cocok dengan kata kunci pencarian.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: context.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          for (final item in filteredList) ...[
+            _NilaiCard(
+              item: item,
+              neuBuilder: _buildNeuCard,
+            ),
+            const SizedBox(height: 12),
           ],
 
-          // 3. Search Bar & Filter Chips
-          _buildSearchAndFilters(
-            context,
-            totalCount: rawList.length,
-            gradeCounts: gradeCounts,
-          ),
-          const SizedBox(height: 14),
-
-          // 4. Daftar Mata Kuliah & Nilai
-          if (filteredList.isEmpty)
-            SurfaceCard(
-              padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.search_off_rounded,
-                    size: 44,
-                    color: context.textMuted.withValues(alpha: 0.5),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    rawList.isEmpty
-                        ? 'Belum ada rincian nilai mata kuliah untuk semester ini.'
-                        : 'Tidak ada mata kuliah yang cocok dengan kata kunci pencarian.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: context.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else
-            for (final item in filteredList) ...[
-              _NilaiCard(item: item),
-              const SizedBox(height: 10),
-            ],
-
-          const SizedBox(height: 30),
-        ],
-      ),
+        const SizedBox(height: 20),
+      ],
     );
   }
 
+  // ────────────────────────────────────────────────── HERO CARD
   Widget _buildHeroCard(BuildContext context, Map<String, dynamic> data) {
     final mhs = asMap(data['mahasiswa']);
     final nama = pickString(mhs, ['nama'], 'Mahasiswa');
@@ -662,20 +936,9 @@ class _KhsScreenState extends State<KhsScreen> {
     final double ipsVal = double.tryParse(ips.replaceAll(',', '.')) ?? 0.0;
     final (String predikat, Color predikatColor) = _evaluasiIps(ipsVal);
 
-    return Container(
+    return _buildNeuCard(
+      context: context,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: context.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: context.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -692,6 +955,13 @@ class _KhsScreenState extends State<KhsScreen> {
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.upiYellowDeep.withValues(alpha: 0.25),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
                 alignment: Alignment.center,
                 child: Text(
@@ -764,7 +1034,7 @@ class _KhsScreenState extends State<KhsScreen> {
           ),
 
           const SizedBox(height: 14),
-          const Divider(height: 1),
+          Divider(height: 1, color: context.border),
           const SizedBox(height: 14),
 
           // Showcase Pencapaian: IPS & IPK Utama
@@ -840,13 +1110,13 @@ class _KhsScreenState extends State<KhsScreen> {
                 flex: 6,
                 child: Column(
                   children: [
-                    _subMetricRow('IPK Kumulatif', ipk, Icons.school_rounded,
+                    _subMetricRow(context, 'IPK Kumulatif', ipk, Icons.school_rounded,
                         AppColors.indigo500),
                     const SizedBox(height: 6),
-                    _subMetricRow('Total SKS', '$totalSks SKS',
+                    _subMetricRow(context, 'Total SKS', '$totalSks SKS',
                         Icons.grid_view_rounded, AppColors.green),
                     const SizedBox(height: 6),
-                    _subMetricRow('Total Mutu', totalMutu,
+                    _subMetricRow(context, 'Total Mutu', totalMutu,
                         Icons.auto_awesome_rounded, AppColors.orange),
                   ],
                 ),
@@ -858,22 +1128,22 @@ class _KhsScreenState extends State<KhsScreen> {
             const SizedBox(height: 12),
             Container(
               padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6.5),
               decoration: BoxDecoration(
                 color: context.softFill,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: context.border),
               ),
               child: Row(
                 children: [
                   const Icon(Icons.info_outline_rounded,
-                      size: 13, color: AppColors.upiYellowDeep),
+                      size: 14, color: AppColors.upiYellowDeep),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       'Maksimal beban semester depan: $maksSks SKS',
                       style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 11.5,
                           fontWeight: FontWeight.w600,
                           color: context.textPrimary),
                     ),
@@ -889,34 +1159,58 @@ class _KhsScreenState extends State<KhsScreen> {
           Row(
             children: [
               Expanded(
-                child: FilledButton.icon(
-                  onPressed: _bukaLembarCetak,
-                  icon: const Icon(Icons.description_rounded, size: 16),
-                  label: const Text(
-                    'Lihat Lembar Cetak KHS',
-                    style:
-                        TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
-                  ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.upiYellowDeep,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
+                child: IosBounceTap(
+                  onTap: _bukaLembarCetak,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFE5A620), Color(0xFFB87500)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.upiYellowDeep.withValues(alpha: 0.35),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.description_rounded,
+                            size: 16, color: Colors.white),
+                        SizedBox(width: 6),
+                        Text(
+                          'Lihat Lembar Cetak KHS',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-              OutlinedButton(
-                onPressed: () => _showCetakMenu(data),
-                style: OutlinedButton.styleFrom(
+              IosBounceTap(
+                onTap: () => _showCetakMenu(data),
+                child: Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  side: BorderSide(color: context.border),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                  decoration: BoxDecoration(
+                    color: context.card,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: context.border),
+                  ),
+                  child: Icon(Icons.more_horiz_rounded,
+                      size: 20, color: context.textPrimary),
                 ),
-                child: const Icon(Icons.more_horiz_rounded, size: 18),
               ),
             ],
           ),
@@ -926,9 +1220,9 @@ class _KhsScreenState extends State<KhsScreen> {
   }
 
   Widget _subMetricRow(
-      String label, String val, IconData icon, Color color) {
+      BuildContext context, String label, String val, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6.5),
       decoration: BoxDecoration(
         color: context.softFill,
         borderRadius: BorderRadius.circular(10),
@@ -936,7 +1230,7 @@ class _KhsScreenState extends State<KhsScreen> {
       ),
       child: Row(
         children: [
-          Icon(icon, size: 13, color: color),
+          Icon(icon, size: 14, color: color),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
@@ -947,7 +1241,7 @@ class _KhsScreenState extends State<KhsScreen> {
           Text(
             val,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 12.5,
               fontWeight: FontWeight.w800,
               color: context.textPrimary,
             ),
@@ -965,18 +1259,15 @@ class _KhsScreenState extends State<KhsScreen> {
     return ('Perlu Peningkatan', AppColors.red);
   }
 
+  // ────────────────────────────────────────────────── GRADE DISTRIBUTION
   Widget _buildGradeDistribution(
     BuildContext context,
     Map<String, int> counts,
     int total,
   ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-      decoration: BoxDecoration(
-        color: context.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: context.border),
-      ),
+    return _buildNeuCard(
+      context: context,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -986,8 +1277,8 @@ class _KhsScreenState extends State<KhsScreen> {
               Text(
                 'Distribusi Nilai',
                 style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
                   color: context.textPrimary,
                 ),
               ),
@@ -997,7 +1288,7 @@ class _KhsScreenState extends State<KhsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Row(
             children: [
               _gradePill('Grade A', counts['A'] ?? 0, AppColors.green),
@@ -1019,10 +1310,10 @@ class _KhsScreenState extends State<KhsScreen> {
   Widget _gradePill(String label, int count, Color color) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 6),
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: color.withValues(alpha: 0.25)),
         ),
         child: Column(
@@ -1030,12 +1321,14 @@ class _KhsScreenState extends State<KhsScreen> {
             Text(
               '$count MK',
               style: TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.w800, color: color),
+                  fontSize: 13, fontWeight: FontWeight.w900, color: color),
             ),
             Text(
               label,
               style: TextStyle(
-                  fontSize: 9.5, color: color.withValues(alpha: 0.8)),
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w600,
+                  color: color.withValues(alpha: 0.85)),
             ),
           ],
         ),
@@ -1043,6 +1336,7 @@ class _KhsScreenState extends State<KhsScreen> {
     );
   }
 
+  // ────────────────────────────────────────────────── SEARCH & FILTERS
   Widget _buildSearchAndFilters(
     BuildContext context, {
     required int totalCount,
@@ -1052,12 +1346,9 @@ class _KhsScreenState extends State<KhsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Search bar
-        Container(
-          decoration: BoxDecoration(
-            color: context.card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: context.border),
-          ),
+        _buildNeuCard(
+          context: context,
+          padding: EdgeInsets.zero,
           child: TextField(
             controller: _searchCtrl,
             onChanged: (val) => setState(() => _searchQuery = val),
@@ -1078,7 +1369,7 @@ class _KhsScreenState extends State<KhsScreen> {
                   : null,
               isDense: true,
               contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               border: InputBorder.none,
             ),
           ),
@@ -1144,29 +1435,36 @@ class _KhsScreenState extends State<KhsScreen> {
     required VoidCallback onSelected,
     Color activeColor = AppColors.upiYellowDeep,
   }) {
-    return InkWell(
+    return IosBounceTap(
       onTap: onSelected,
-      borderRadius: BorderRadius.circular(20),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
           color: selected
               ? activeColor.withValues(alpha: 0.14)
-              : context.softFill,
+              : (context.isDark ? const Color(0xFF1C1C1E) : Colors.white),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: selected
-                ? activeColor.withValues(alpha: 0.5)
+                ? activeColor.withValues(alpha: 0.6)
                 : context.border,
             width: selected ? 1.4 : 1,
           ),
+          boxShadow: [
+            if (!selected)
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+          ],
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 11.5,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
             color: selected ? activeColor : context.textPrimary,
           ),
         ),
@@ -1175,11 +1473,20 @@ class _KhsScreenState extends State<KhsScreen> {
   }
 }
 
-// ==================================================================== Kartu Nilai
-
+// ────────────────────────────────────────────────── KARTU NILAI (NEUMORPHIC)
 class _NilaiCard extends StatelessWidget {
-  const _NilaiCard({required this.item});
+  const _NilaiCard({
+    required this.item,
+    required this.neuBuilder,
+  });
+
   final Map<String, dynamic> item;
+  final Widget Function({
+    required BuildContext context,
+    required Widget child,
+    EdgeInsetsGeometry padding,
+    VoidCallback? onTap,
+  }) neuBuilder;
 
   Color _gradeColor(String grade) {
     final g = grade.toUpperCase().trim();
@@ -1211,7 +1518,8 @@ class _NilaiCard extends StatelessWidget {
 
     final gradeCol = _gradeColor(grade);
 
-    return SurfaceCard(
+    return neuBuilder(
+      context: context,
       padding: const EdgeInsets.all(14),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1293,7 +1601,7 @@ class _NilaiCard extends StatelessWidget {
                         kode,
                         style: const TextStyle(
                           fontSize: 11.5,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w800,
                           color: AppColors.upiYellowDeep,
                         ),
                       ),

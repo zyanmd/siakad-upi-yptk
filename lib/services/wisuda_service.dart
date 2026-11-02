@@ -30,5 +30,12 @@ class WisudaService {
   /// Stream binary foto tersimpan dengan otentikasi X-Session-Id
   Future<List<int>> getPreviewFotoBytes() =>
       _api.getBytes('/api/wisuda/foto-ijazah/preview');
+
+  /// Ambil data lengkap kartu QR Code wisudawan (/api/wisuda/kartu-qrcode)
+  Future<dynamic> getKartuQrCode() => _api.get('/api/wisuda/kartu-qrcode');
+
+  /// Stream binary PNG gambar QR Code wisudawan (/api/wisuda/kartu-qrcode/image)
+  Future<List<int>> getKartuQrCodeImageBytes() =>
+      _api.getBytes('/api/wisuda/kartu-qrcode/image');
 }
 

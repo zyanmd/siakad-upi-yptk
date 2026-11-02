@@ -3,7 +3,7 @@
 /// Ubah [baseUrl] di sini bila alamat API berpindah.
 class ApiConfig {
   /// Base URL API (tanpa trailing slash).
-  static const String baseUrl = 'https://z1.pipinipon.site';
+  static const String baseUrl = 'http://103.119.237.37:2027';
 
   /// Header yang dipakai untuk mengirim session id.
   static const String sessionHeader = 'X-Session-Id';

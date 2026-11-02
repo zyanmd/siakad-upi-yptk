@@ -1,21 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
 import '../services/api_client.dart';
+import '../state/auth_provider.dart';
 import '../theme/app_theme.dart';
+import '../utils/format.dart';
 import '../utils/smart.dart';
 import '../utils/transkrip_pdf.dart';
-import '../widgets/async_page.dart';
 import '../widgets/common.dart';
-import '../widgets/gradient_header.dart';
+import '../widgets/periode_dropdown.dart';
 import 'transkrip_cetak_screen.dart';
+
+// ── UPI YPTK Academic Gold Gradient ──
+const _yellowHeaderGradient = [
+  Color(0xFFE5A620), // Bright Academic Gold
+  Color(0xFFD48B08), // UPI Yellow
+  Color(0xFFB87500), // Deep Academic Gold
+];
 
 /// Halaman Transkrip Nilai Akademik Lengkap:
 /// Menampilkan rekapitulasi nilai seluruh semester perkuliahan, IPK kumulatif,
 /// tren IPS antar semester, distribusi perolehan grade, pencarian & filter,
 /// serta fungsi pratinjau lembar cetak resmi A4 dan ekspor PDF.
+/// Berdesain Seamless Wave Header & Neumorphic UI.
 class TranskripScreen extends StatefulWidget {
   const TranskripScreen({super.key});
 
@@ -24,13 +34,25 @@ class TranskripScreen extends StatefulWidget {
 }
 
 class _TranskripScreenState extends State<TranskripScreen> {
-  final _pageKey = GlobalKey<AsyncPageState<Map<String, dynamic>>>();
   final TextEditingController _searchCtrl = TextEditingController();
 
   String _searchQuery = '';
   String _selectedSemesterFilter = 'all';
   String _selectedGradeFilter = 'all';
-  Map<String, dynamic>? _lastLoadedData;
+  Map<String, dynamic>? _cachedData;
+  Future<Map<String, dynamic>>? _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _reload();
+  }
+
+  void _reload() {
+    setState(() {
+      _future = _load();
+    });
+  }
 
   @override
   void dispose() {
@@ -137,7 +159,12 @@ class _TranskripScreenState extends State<TranskripScreen> {
       }
     } catch (_) {}
 
-    _lastLoadedData = merged;
+    if (mounted) {
+      setState(() {
+        _cachedData = merged;
+      });
+    }
+
     return merged;
   }
 
@@ -160,11 +187,13 @@ class _TranskripScreenState extends State<TranskripScreen> {
       final api = context.read<ApiClient>();
       final resp = await api.get('/api/akademik/transkrip/cetak-url');
       final url = deepFind(resp, ['cetak_url', 'url', 'link', 'file'])?.toString();
+      if (!mounted) return;
+
       if (url == null || !url.startsWith('http')) {
         _bukaLembarCetak();
         return;
       }
-      if (mounted) await openExternal(context, url);
+      await openExternal(context, url);
     } catch (e) {
       if (mounted) {
         _bukaLembarCetak();
@@ -192,11 +221,11 @@ class _TranskripScreenState extends State<TranskripScreen> {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -204,13 +233,13 @@ class _TranskripScreenState extends State<TranskripScreen> {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: AppColors.amber.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(Icons.print_rounded,
-                        color: AppColors.upiYellowDeep, size: 20),
+                        color: AppColors.upiYellowDeep, size: 22),
                   ),
                   const SizedBox(width: 12),
                   const Expanded(
@@ -220,8 +249,8 @@ class _TranskripScreenState extends State<TranskripScreen> {
                         Text(
                           'Pilihan Cetak Transkrip',
                           style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                         Text(
@@ -233,19 +262,19 @@ class _TranskripScreenState extends State<TranskripScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: AppColors.green.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.bolt_rounded, color: AppColors.green),
                 ),
                 title: const Text('Cetak / Simpan PDF (Instan)',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
                 subtitle: const Text(
                     'Render cepat dokumen PDF vektor resmi tanpa menunggu pratinjau lama.',
                     style: TextStyle(fontSize: 11.5)),
@@ -262,13 +291,13 @@ class _TranskripScreenState extends State<TranskripScreen> {
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: AppColors.upiYellowDeep.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.description_rounded,
                       color: AppColors.upiYellowDeep),
                 ),
                 title: const Text('Pratinjau Lembar Cetak Transkrip',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
                 subtitle: const Text(
                     'Lihat pratinjau kertas & PDF interaktif sebelum mencetak.',
                     style: TextStyle(fontSize: 11.5)),
@@ -285,13 +314,13 @@ class _TranskripScreenState extends State<TranskripScreen> {
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: AppColors.blue.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.open_in_browser_rounded,
                       color: AppColors.blue),
                 ),
                 title: const Text('Buka Lembar Web SIAKAD',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
                 subtitle: const Text('Buka halaman transkrip bawaan web kampus.',
                     style: TextStyle(fontSize: 11.5)),
                 trailing: const Icon(Icons.chevron_right_rounded),
@@ -322,42 +351,393 @@ class _TranskripScreenState extends State<TranskripScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return AsyncPage<Map<String, dynamic>>(
-      key: _pageKey,
-      title: 'Transkrip Nilai',
-      subtitle: 'Rekapitulasi nilai akademik lintas semester',
-      load: _load,
-      headerActions: [
-        HeaderActionButton(
-          icon: Icons.print_rounded,
-          tooltip: 'Cetak Transkrip',
-          onPressed: () {
-            _showCetakMenu(_lastLoadedData ?? {});
-          },
-        ),
-        HeaderActionButton(
-          icon: Icons.refresh_rounded,
-          tooltip: 'Muat Ulang',
-          onPressed: () => _pageKey.currentState?.reload(),
-        ),
-      ],
-      builder: (context, data) => _buildBody(context, data),
+    final auth = context.watch<AuthProvider>();
+    final isDark = context.isDark;
+    final bg = isDark ? const Color(0xFF000000) : const Color(0xFFF9FAFB);
+
+    final summary = asMap(_cachedData?['summary']);
+    final ipk = pickString(summary, ['ipk'], '-');
+
+    // Kumpulkan opsi periode untuk dropdown floating pill
+    final periodList = <String>[];
+    final rawPeriods = _cachedData?['periode'];
+    if (rawPeriods is List) {
+      for (final p in rawPeriods) {
+        if (p is Map) {
+          final pNama = pickString(asMap(p), ['periode'], '');
+          if (pNama.isNotEmpty && !periodList.contains(pNama)) {
+            periodList.add(pNama);
+          }
+        }
+      }
+    }
+
+    return Scaffold(
+      backgroundColor: bg,
+      body: Column(
+        children: [
+          // ──── HEADER KUNING DENGAN LEKUKAN BERSAMBUNG & FLOATING SEMESTER PILL ────
+          Stack(
+            alignment: Alignment.bottomCenter,
+            clipBehavior: Clip.none,
+            children: [
+              _buildCurvedYellowHeader(
+                nama: auth.nama,
+                nim: auth.nim,
+                ipk: ipk,
+              ),
+              Positioned(
+                bottom: -18,
+                left: 0,
+                right: 0,
+                child: _buildFloatingFilterPill(context, isDark, periodList),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+
+          // ──── BODY KONTEN ────
+          Expanded(
+            child: FutureBuilder<Map<String, dynamic>>(
+              future: _future,
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting &&
+                    _cachedData == null) {
+                  return const Center(
+                    child: LoadingView(label: 'Memuat transkrip nilai...'),
+                  );
+                }
+                if (snap.hasError && _cachedData == null) {
+                  return ErrorRetry(
+                    message: errorText(snap.error!),
+                    onRetry: _reload,
+                  );
+                }
+                if (snap.hasData) {
+                  _cachedData = snap.data;
+                }
+                if (_cachedData == null || _cachedData!.isEmpty) {
+                  return const EmptyView(message: 'Data transkrip tidak ditemukan');
+                }
+                return RefreshIndicator(
+                  color: AppColors.upiYellowDeep,
+                  backgroundColor:
+                      isDark ? const Color(0xFF1E1E22) : Colors.white,
+                  onRefresh: () async {
+                    _reload();
+                    await _future;
+                  },
+                  child: _buildBody(context, _cachedData!),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildBody(BuildContext context, Map<String, dynamic> data) {
-    if (data.isEmpty) {
-      return ListView(
-        children: const [
-          SizedBox(height: 80),
-          EmptyView(
-            icon: Icons.workspace_premium_outlined,
-            message: 'Belum ada data transkrip nilai akademik.',
-          ),
-        ],
-      );
-    }
+  // ────────────────────────────────────────────────── HEADER KUNING DENGAN LEKUKAN BERSAMBUNG
+  Widget _buildCurvedYellowHeader({
+    required String nama,
+    required String nim,
+    required String ipk,
+  }) {
+    final canPop = Navigator.of(context).canPop();
 
+    return ClipPath(
+      clipper: const SeamlessWaveClipper(),
+      child: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: _yellowHeaderGradient,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 12, 22, kCurvedHeaderBottomPadding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top Row: Back + Title + Action buttons (Cetak & Refresh)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (canPop) ...[
+                          IconButton(
+                            onPressed: () {
+                              Navigator.of(context).maybePop();
+                            },
+                            icon: const Icon(Icons.arrow_back_rounded,
+                                color: Colors.white, size: 24),
+                            tooltip: 'Kembali',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        const Text(
+                          'Transkrip Nilai',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 21,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          onPressed: () {
+                            HapticFeedback.selectionClick();
+                            _showCetakMenu(_cachedData ?? {});
+                          },
+                          icon: const Icon(Icons.print_rounded,
+                              color: Colors.white, size: 22),
+                          tooltip: 'Cetak Transkrip',
+                          splashRadius: 20,
+                          padding: const EdgeInsets.all(6),
+                          constraints: const BoxConstraints(),
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          onPressed: () {
+                            HapticFeedback.selectionClick();
+                            _reload();
+                          },
+                          icon: const Icon(Icons.refresh_rounded,
+                              color: Colors.white, size: 22),
+                          tooltip: 'Muat Ulang',
+                          splashRadius: 20,
+                          padding: const EdgeInsets.all(6),
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // Student Identity Row
+                Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.22),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.85),
+                          width: 1.8,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Text(
+                          initialsOf(nama),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            nama.isNotEmpty ? nama : 'Mahasiswa UPI YPTK',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16.5,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                nim.isNotEmpty ? 'NIM $nim' : '-',
+                                style: const TextStyle(
+                                  color: Color(0xE6FFFFFF),
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w500,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.22),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  'TRANSKRIP',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.4,
+                                  ),
+                                ),
+                              ),
+                              if (ipk.isNotEmpty && ipk != '-')
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.25),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    'IPK: $ipk',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ────────────────────────────────────────────────── FLOATING SEMESTER PILL
+  Widget _buildFloatingFilterPill(BuildContext context, bool isDark, List<String> periodList) {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E1E22) : Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: isDark
+                  ? Colors.black.withValues(alpha: 0.40)
+                  : Colors.black.withValues(alpha: 0.08),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: PillDropdown(
+          value: _selectedSemesterFilter,
+          hint: 'Pilih Semester',
+          items: [
+            const DropdownMenuItem<String>(
+              value: 'all',
+              child: Text(
+                'Semua Semester',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            for (final p in periodList)
+              DropdownMenuItem<String>(
+                value: p,
+                child: Text(
+                  p,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+          onChanged: (v) {
+            if (v == null || v == _selectedSemesterFilter) return;
+            HapticFeedback.selectionClick();
+            setState(() {
+              _selectedSemesterFilter = v;
+            });
+          },
+        ),
+      ),
+    );
+  }
+
+  // ────────────────────────────────────────────────── NEUMORPHIC CARD HELPER
+  Widget _buildNeuCard({
+    required BuildContext context,
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
+    VoidCallback? onTap,
+  }) {
+    final isDark = context.isDark;
+    final content = Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF1F5F9),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.35)
+                : const Color(0xFF94A3B8).withValues(alpha: 0.12),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+          if (!isDark)
+            BoxShadow(
+              color: Colors.white.withValues(alpha: 0.9),
+              blurRadius: 10,
+              offset: const Offset(-2, -2),
+            ),
+        ],
+      ),
+      child: child,
+    );
+
+    if (onTap != null) {
+      return IosBounceTap(onTap: onTap, child: content);
+    }
+    return content;
+  }
+
+  // ────────────────────────────────────────────────── BODY
+  Widget _buildBody(BuildContext context, Map<String, dynamic> data) {
     // Ekstrak periode & semua mata kuliah
     final periodList = <Map<String, dynamic>>[];
     final allCourses = <Map<String, dynamic>>[];
@@ -443,76 +823,75 @@ class _TranskripScreenState extends State<TranskripScreen> {
       }
     }
 
-    return RefreshIndicator(
-      onRefresh: () async => _pageKey.currentState?.reload(),
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // 1. Hero Card: Identitas & Prestasi Kumulatif
-          _buildHeroCard(context, data),
-          const SizedBox(height: 14),
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 104),
+      children: [
+        // 1. Hero Card: Identitas & Prestasi Kumulatif
+        _buildHeroCard(context, data),
+        const SizedBox(height: 14),
 
-          // 2. Tren IP Semester (Progress Bar)
-          if (periodList.isNotEmpty) ...[
-            _buildTrendSection(context, periodList),
+        // 2. Tren IP Semester (Progress Bar)
+        if (periodList.isNotEmpty) ...[
+          _buildTrendSection(context, periodList),
+          const SizedBox(height: 14),
+        ],
+
+        // 3. Rekap Distribusi Nilai Kumulatif
+        if (allCourses.isNotEmpty) ...[
+          _buildGradeDistribution(context, gradeCounts, allCourses.length),
+          const SizedBox(height: 16),
+        ],
+
+        // 4. Search & Filter Bar
+        _buildSearchAndFilters(
+          context,
+          periodList: periodList,
+          totalCount: allCourses.length,
+          gradeCounts: gradeCounts,
+        ),
+        const SizedBox(height: 14),
+
+        // 5. Daftar Mata Kuliah per Periode
+        if (filteredPeriods.isEmpty ||
+            filteredPeriods.every((p) => (p['mata_kuliah'] as List).isEmpty)) ...[
+          _buildNeuCard(
+            context: context,
+            padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.search_off_rounded,
+                  size: 44,
+                  color: context.textMuted.withValues(alpha: 0.5),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  allCourses.isEmpty
+                      ? 'Belum ada rincian mata kuliah pada transkrip.'
+                      : 'Tidak ada mata kuliah yang cocok dengan filter pencarian.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: context.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          )
+        ] else ...[
+          for (final p in filteredPeriods) ...[
+            _buildPeriodCard(context, p),
             const SizedBox(height: 14),
           ],
-
-          // 3. Rekap Distribusi Nilai Kumulatif
-          if (allCourses.isNotEmpty) ...[
-            _buildGradeDistribution(context, gradeCounts, allCourses.length),
-            const SizedBox(height: 16),
-          ],
-
-          // 4. Search & Filter Bar
-          _buildSearchAndFilters(
-            context,
-            periodList: periodList,
-            totalCount: allCourses.length,
-            gradeCounts: gradeCounts,
-          ),
-          const SizedBox(height: 14),
-
-          // 5. Daftar Mata Kuliah per Periode
-          if (filteredPeriods.isEmpty ||
-              filteredPeriods.every((p) => (p['mata_kuliah'] as List).isEmpty)) ...[
-            SurfaceCard(
-              padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.search_off_rounded,
-                    size: 44,
-                    color: context.textMuted.withValues(alpha: 0.5),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    allCourses.isEmpty
-                        ? 'Belum ada rincian mata kuliah pada transkrip.'
-                        : 'Tidak ada mata kuliah yang cocok dengan filter pencarian.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: context.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ] else ...[
-            for (final p in filteredPeriods) ...[
-              _buildPeriodCard(context, p),
-              const SizedBox(height: 14),
-            ],
-          ],
-
-          const SizedBox(height: 32),
         ],
-      ),
+
+        const SizedBox(height: 20),
+      ],
     );
   }
 
+  // ────────────────────────────────────────────────── HERO CARD
   Widget _buildHeroCard(BuildContext context, Map<String, dynamic> data) {
     final mhs = asMap(data['mahasiswa']);
     final nama = pickString(mhs, ['nama'], 'Mahasiswa');
@@ -533,20 +912,9 @@ class _TranskripScreenState extends State<TranskripScreen> {
     final double ipkVal = double.tryParse(ipk.replaceAll(',', '.')) ?? 0.0;
     final (String predikat, Color predikatColor) = _evaluasiIpk(ipkVal);
 
-    return Container(
+    return _buildNeuCard(
+      context: context,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: context.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: context.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -563,6 +931,13 @@ class _TranskripScreenState extends State<TranskripScreen> {
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.upiYellowDeep.withValues(alpha: 0.25),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
                 alignment: Alignment.center,
                 child: Text(
@@ -631,7 +1006,7 @@ class _TranskripScreenState extends State<TranskripScreen> {
           ),
 
           const SizedBox(height: 14),
-          const Divider(height: 1),
+          Divider(height: 1, color: context.border),
           const SizedBox(height: 14),
 
           // Showcase IPK Kumulatif & Metrik Utama
@@ -752,6 +1127,66 @@ class _TranskripScreenState extends State<TranskripScreen> {
               ),
             ],
           ),
+
+          const SizedBox(height: 14),
+
+          // Tombol Cetak Cepat
+          Row(
+            children: [
+              Expanded(
+                child: IosBounceTap(
+                  onTap: () => _cetakPdfLangsung(data),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFE5A620), Color(0xFFB87500)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.upiYellowDeep.withValues(alpha: 0.35),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.bolt_rounded, size: 18, color: Colors.white),
+                        SizedBox(width: 6),
+                        Text(
+                          'Cetak / Simpan PDF (Instan)',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IosBounceTap(
+                onTap: () => _showCetakMenu(data),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                  decoration: BoxDecoration(
+                    color: context.card,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: context.border),
+                  ),
+                  child: Icon(Icons.more_horiz_rounded,
+                      size: 20, color: context.textPrimary),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -764,7 +1199,7 @@ class _TranskripScreenState extends State<TranskripScreen> {
     required String value,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: context.softFill,
         borderRadius: BorderRadius.circular(10),
@@ -795,7 +1230,7 @@ class _TranskripScreenState extends State<TranskripScreen> {
           Text(
             value,
             style: TextStyle(
-              fontSize: 12.5,
+              fontSize: 12,
               fontWeight: FontWeight.w800,
               color: context.textPrimary,
             ),
@@ -807,9 +1242,12 @@ class _TranskripScreenState extends State<TranskripScreen> {
     );
   }
 
+  // ────────────────────────────────────────────────── TREN IP PER SEMESTER
   Widget _buildTrendSection(
       BuildContext context, List<Map<String, dynamic>> periodList) {
-    return SurfaceCard(
+    return _buildNeuCard(
+      context: context,
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -825,9 +1263,13 @@ class _TranskripScreenState extends State<TranskripScreen> {
                     size: 16, color: AppColors.upiYellowDeep),
               ),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'Tren IP per Semester',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: context.textPrimary,
+                ),
               ),
             ],
           ),
@@ -912,6 +1354,7 @@ class _TranskripScreenState extends State<TranskripScreen> {
     );
   }
 
+  // ────────────────────────────────────────────────── DISTRIBUSI GRADE
   Widget _buildGradeDistribution(
       BuildContext context, Map<String, int> counts, int total) {
     final grades = ['A', 'B', 'C', 'D/E'];
@@ -922,17 +1365,22 @@ class _TranskripScreenState extends State<TranskripScreen> {
       AppColors.red,
     ];
 
-    return SurfaceCard(
-      padding: const EdgeInsets.all(12),
+    return _buildNeuCard(
+      context: context,
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Distribusi Grade Nilai Kumulatif',
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                  color: context.textPrimary,
+                ),
               ),
               Text(
                 '$total Mata Kuliah',
@@ -949,9 +1397,9 @@ class _TranskripScreenState extends State<TranskripScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     margin: EdgeInsets.only(right: i < grades.length - 1 ? 6 : 0),
                     decoration: BoxDecoration(
-                      color: colors[i].withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: colors[i].withValues(alpha: 0.20)),
+                      color: colors[i].withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: colors[i].withValues(alpha: 0.25)),
                     ),
                     child: Column(
                       children: [
@@ -984,6 +1432,7 @@ class _TranskripScreenState extends State<TranskripScreen> {
     );
   }
 
+  // ────────────────────────────────────────────────── SEARCH & FILTERS
   Widget _buildSearchAndFilters(
     BuildContext context, {
     required List<Map<String, dynamic>> periodList,
@@ -993,17 +1442,14 @@ class _TranskripScreenState extends State<TranskripScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Search Input
-        Container(
-          decoration: BoxDecoration(
-            color: context.card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: context.border),
-          ),
+        // Search Input Field
+        _buildNeuCard(
+          context: context,
+          padding: EdgeInsets.zero,
           child: TextField(
             controller: _searchCtrl,
             onChanged: (v) => setState(() => _searchQuery = v),
-            style: const TextStyle(fontSize: 13.5),
+            style: TextStyle(fontSize: 13.5, color: context.textPrimary),
             decoration: InputDecoration(
               hintText: 'Cari mata kuliah, kode, atau periode...',
               hintStyle: TextStyle(color: context.textMuted, fontSize: 13),
@@ -1019,35 +1465,11 @@ class _TranskripScreenState extends State<TranskripScreen> {
                     )
                   : null,
               border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(vertical: 11),
+              contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
             ),
           ),
         ),
         const SizedBox(height: 10),
-
-        // Filter Semester Chips
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _buildFilterChip(
-                label: 'Semua Semester ($totalCount)',
-                selected: _selectedSemesterFilter == 'all',
-                onSelected: () => setState(() => _selectedSemesterFilter = 'all'),
-              ),
-              for (final p in periodList) ...[
-                const SizedBox(width: 6),
-                _buildFilterChip(
-                  label: pickString(p, ['periode'], '-'),
-                  selected: _selectedSemesterFilter == pickString(p, ['periode'], ''),
-                  onSelected: () => setState(
-                      () => _selectedSemesterFilter = pickString(p, ['periode'], '')),
-                ),
-              ],
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
 
         // Filter Grade Chips
         SingleChildScrollView(
@@ -1101,23 +1523,30 @@ class _TranskripScreenState extends State<TranskripScreen> {
     Color? color,
   }) {
     final activeColor = color ?? AppColors.upiYellowDeep;
-    return InkWell(
+    return IosBounceTap(
       onTap: onSelected,
-      borderRadius: BorderRadius.circular(20),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
           color: selected
-              ? activeColor.withValues(alpha: 0.15)
-              : context.card,
+              ? activeColor.withValues(alpha: 0.14)
+              : (context.isDark ? const Color(0xFF1C1C1E) : Colors.white),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: selected
-                ? activeColor
+                ? activeColor.withValues(alpha: 0.6)
                 : context.border,
             width: selected ? 1.4 : 1.0,
           ),
+          boxShadow: [
+            if (!selected)
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+          ],
         ),
         child: Text(
           label,
@@ -1131,6 +1560,7 @@ class _TranskripScreenState extends State<TranskripScreen> {
     );
   }
 
+  // ────────────────────────────────────────────────── PERIOD CARD (NEUMORPHIC)
   Widget _buildPeriodCard(BuildContext context, Map<String, dynamic> p) {
     final pNama = pickString(p, ['periode'], 'Periode');
     final ips = pickString(p, ['ips'], '-');
@@ -1139,21 +1569,18 @@ class _TranskripScreenState extends State<TranskripScreen> {
     final subMutu = pickString(subtotal, ['mutu'], '0');
     final mks = p['mata_kuliah'] as List;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: context.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: context.border),
-      ),
+    return _buildNeuCard(
+      context: context,
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header Periode
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             decoration: BoxDecoration(
               color: AppColors.upiYellowDeep.withValues(alpha: 0.08),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(19)),
               border: Border(bottom: BorderSide(color: context.border)),
             ),
             child: Row(
@@ -1186,6 +1613,13 @@ class _TranskripScreenState extends State<TranskripScreen> {
                   decoration: BoxDecoration(
                     color: AppColors.upiYellowDeep,
                     borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.upiYellowDeep.withValues(alpha: 0.3),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Text(
                     'IPS $ips',
@@ -1248,7 +1682,7 @@ class _TranskripScreenState extends State<TranskripScreen> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: context.softFill,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: context.border),
       ),
       child: Row(

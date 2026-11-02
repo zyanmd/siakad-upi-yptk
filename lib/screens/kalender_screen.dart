@@ -9,14 +9,21 @@ import '../services/api_client.dart';
 import '../theme/app_theme.dart';
 import '../utils/kalender_pdf.dart';
 import '../utils/smart.dart';
-import '../widgets/async_page.dart';
 import '../widgets/common.dart';
-import '../widgets/gradient_header.dart';
+import '../widgets/periode_dropdown.dart';
 import 'kalender_cetak_screen.dart';
+
+// ── UPI YPTK Academic Gold Gradient ──
+const _yellowHeaderGradient = [
+  Color(0xFFE5A620), // Bright Academic Gold
+  Color(0xFFD48B08), // UPI Yellow
+  Color(0xFFB87500), // Deep Academic Gold
+];
 
 /// Halaman Kalender Akademik Resmi Universitas:
 /// Menampilkan daftar agenda penting perkuliahan lintas semester (Ganjil/Genap),
-/// filter tahun akademik, metrik resmi, pencarian agenda, dan fitur cetak/ekspor PDF.
+/// filter tahun akademik, metrik resmi, pencarian agenda, dan fitur cetak/ekspor PDF
+/// berdesain Seamless Wave Header & Neumorphic UI.
 class KalenderScreen extends StatefulWidget {
   const KalenderScreen({super.key});
 
@@ -25,13 +32,13 @@ class KalenderScreen extends StatefulWidget {
 }
 
 class _KalenderScreenState extends State<KalenderScreen> {
-  final _pageKey = GlobalKey<AsyncPageState<Map<String, dynamic>>>();
   final TextEditingController _searchCtrl = TextEditingController();
 
   String _tahun = '2026/2027';
   String _searchQuery = '';
   String _selectedSemester = 'all'; // 'all', 'ganjil', 'genap'
-  Map<String, dynamic>? _lastLoadedData;
+  Map<String, dynamic>? _cachedData;
+  Future<Map<String, dynamic>>? _future;
   bool _isDirectPrinting = false;
 
   @override
@@ -42,6 +49,13 @@ class _KalenderScreenState extends State<KalenderScreen> {
       if (q != _searchQuery) {
         setState(() => _searchQuery = q);
       }
+    });
+    _reload();
+  }
+
+  void _reload() {
+    setState(() {
+      _future = _load();
     });
   }
 
@@ -79,7 +93,12 @@ class _KalenderScreenState extends State<KalenderScreen> {
       } catch (_) {}
     }
 
-    _lastLoadedData = result;
+    if (mounted) {
+      setState(() {
+        _cachedData = result;
+      });
+    }
+
     return result;
   }
 
@@ -136,11 +155,11 @@ class _KalenderScreenState extends State<KalenderScreen> {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -148,13 +167,13 @@ class _KalenderScreenState extends State<KalenderScreen> {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Colors.teal.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
+                      color: AppColors.amber.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(Icons.event_note_rounded,
-                        color: Colors.teal, size: 20),
+                        color: AppColors.upiYellowDeep, size: 22),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -164,8 +183,8 @@ class _KalenderScreenState extends State<KalenderScreen> {
                         const Text(
                           'Pilihan Kalender Akademik',
                           style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                         Text(
@@ -177,19 +196,19 @@ class _KalenderScreenState extends State<KalenderScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: AppColors.green.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.bolt_rounded, color: AppColors.green),
                 ),
                 title: const Text('Cetak / Simpan PDF (Instan)',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
                 subtitle: const Text(
                     'Render cepat dokumen PDF vektor resmi tanpa menunggu lama.',
                     style: TextStyle(fontSize: 11.5)),
@@ -206,13 +225,13 @@ class _KalenderScreenState extends State<KalenderScreen> {
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: AppColors.upiYellowDeep.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.description_rounded,
                       color: AppColors.upiYellowDeep),
                 ),
                 title: const Text('Pratinjau Lembar Cetak Kalender',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
                 subtitle: const Text(
                     'Tampilan dokumen lembar cetak kertas & pratinjau PDF interaktif.',
                     style: TextStyle(fontSize: 11.5)),
@@ -229,13 +248,13 @@ class _KalenderScreenState extends State<KalenderScreen> {
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: AppColors.blue.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.open_in_browser_rounded,
                       color: AppColors.blue),
                 ),
                 title: const Text('Buka di Browser SIAKAD',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
                 subtitle: const Text('Buka halaman kalender akademik bawaan web kampus.',
                     style: TextStyle(fontSize: 11.5)),
                 trailing: const Icon(Icons.chevron_right_rounded),
@@ -271,164 +290,465 @@ class _KalenderScreenState extends State<KalenderScreen> {
     return (Icons.event_available_rounded, AppColors.upiYellowDeep);
   }
 
+  // ────────────────────────────────────────────────── NEUMORPHIC CARD HELPER
+  Widget _buildNeuCard({
+    required BuildContext context,
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
+    VoidCallback? onTap,
+  }) {
+    final isDark = context.isDark;
+    final content = Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.3)
+                : Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: child,
+    );
+
+    if (onTap != null) {
+      return IosBounceTap(onTap: onTap, child: content);
+    }
+    return content;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AsyncPage<Map<String, dynamic>>(
-      key: _pageKey,
-      title: 'Kalender Akademik',
-      subtitle: 'Tahun Akademik $_tahun',
-      load: _load,
-      headerActions: [
-        HeaderActionButton(
-          icon: Icons.print_rounded,
-          tooltip: 'Pilihan Cetak',
-          onPressed: () {
-            _showActionSheet(_lastLoadedData ?? {});
-          },
-        ),
-        HeaderActionButton(
-          icon: Icons.refresh_rounded,
-          tooltip: 'Muat Ulang',
-          onPressed: () => _pageKey.currentState?.reload(),
-        ),
-      ],
-      builder: (context, data) {
-        final detail = asMap(data['detail_aktif']);
-        final filterObj = asMap(data['filter']);
-        final rawTahunList = filterObj['tahun_tersedia'];
-        final List<String> tahunOptions = [];
-        if (rawTahunList is List && rawTahunList.isNotEmpty) {
-          for (final t in rawTahunList) {
-            if (t is Map) {
-              final val = pickString(asMap(t), ['value', 'label'], '');
-              if (val.isNotEmpty && !tahunOptions.contains(val)) {
-                tahunOptions.add(val);
-              }
-            }
+    final isDark = context.isDark;
+    final bg = isDark ? const Color(0xFF000000) : const Color(0xFFF9FAFB);
+
+    // Dapatkan opsi tahun dari cached data jika ada
+    final filterObj = asMap(_cachedData?['filter']);
+    final rawTahunList = filterObj['tahun_tersedia'];
+    final List<String> tahunOptions = [];
+    if (rawTahunList is List && rawTahunList.isNotEmpty) {
+      for (final t in rawTahunList) {
+        if (t is Map) {
+          final val = pickString(asMap(t), ['value', 'label'], '');
+          if (val.isNotEmpty && !tahunOptions.contains(val)) {
+            tahunOptions.add(val);
           }
         }
-        if (tahunOptions.isEmpty) {
-          tahunOptions.addAll(['2026/2027', '2025/2026', '2024/2025']);
-        }
+      }
+    }
+    if (tahunOptions.isEmpty) {
+      tahunOptions.addAll(['2026/2027', '2025/2026', '2024/2025']);
+    }
 
-        final metrics = asMap(data['metrics']);
-        final catatan = pickString(detail, ['catatan'], '');
-        final diperbarui = pickString(detail, ['diperbarui'], '');
-        final rawKegiatan = detail['kegiatan'];
-        final List<Map<String, dynamic>> allKegiatan = [];
-        if (rawKegiatan is List) {
-          for (final k in rawKegiatan) {
-            if (k is Map) allKegiatan.add(asMap(k));
-          }
-        }
-
-        // Hitung pembagian semester
-        final List<Map<String, dynamic>> ganjilList = [];
-        final List<Map<String, dynamic>> genapList = [];
-        for (final item in allKegiatan) {
-          final grup = pickString(item, ['grup'], '').toLowerCase();
-          if (grup.contains('genap')) {
-            genapList.add(item);
-          } else {
-            ganjilList.add(item);
-          }
-        }
-
-        // Terapkan filter semester
-        List<Map<String, dynamic>> filtered = allKegiatan;
-        if (_selectedSemester == 'ganjil') {
-          filtered = ganjilList;
-        } else if (_selectedSemester == 'genap') {
-          filtered = genapList;
-        }
-
-        // Terapkan pencarian lokal jika query diisi
-        if (_searchQuery.isNotEmpty) {
-          final q = _searchQuery.toLowerCase();
-          filtered = filtered.where((item) {
-            final keg = pickString(item, ['kegiatan'], '').toLowerCase();
-            final jad = pickString(item, ['jadwal'], '').toLowerCase();
-            return keg.contains(q) || jad.contains(q);
-          }).toList();
-        }
-
-        return ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          children: [
-            // 1. Hero Card: Judul Kalender & Dropdown Tahun
-            _buildHeroCard(context, detail, tahunOptions),
-            const SizedBox(height: 12),
-
-            // 2. Kotak Catatan Resmi (jika ada)
-            if (catatan.isNotEmpty) ...[
-              _buildNoticeBanner(context, catatan, diperbarui),
-              const SizedBox(height: 12),
-            ],
-
-            // 3. Kartu Metrik Ringkasan
-            if (metrics.isNotEmpty) ...[
-              _buildMetricsGrid(context, metrics),
-              const SizedBox(height: 14),
-            ],
-
-            // 4. Search Bar & Filter Semester
-            _buildSearchAndFilters(ganjilList.length, genapList.length, allKegiatan.length),
-            const SizedBox(height: 14),
-
-            // 5. Daftar Agenda Kegiatan
-            if (filtered.isEmpty) ...[
-              const SizedBox(height: 40),
-              Center(
-                child: EmptyView(
-                  icon: Icons.event_busy_rounded,
-                  message: _searchQuery.isNotEmpty
-                      ? 'Tidak ditemukan agenda yang sesuai dengan "$_searchQuery".'
-                      : 'Belum ada agenda pada semester yang dipilih.',
-                ),
+    return Scaffold(
+      backgroundColor: bg,
+      body: Column(
+        children: [
+          // ──── HEADER KUNING DENGAN LEKUKAN BERSAMBUNG & FLOATING TAHUN PILL ────
+          Stack(
+            alignment: Alignment.bottomCenter,
+            clipBehavior: Clip.none,
+            children: [
+              _buildCurvedYellowHeader(),
+              Positioned(
+                bottom: -18,
+                left: 0,
+                right: 0,
+                child: _buildFloatingTahunPill(context, isDark, tahunOptions),
               ),
-              const SizedBox(height: 40),
-            ] else ...[
-              _buildAgendaGrouped(filtered),
             ],
+          ),
+          const SizedBox(height: 32),
 
-            const SizedBox(height: 24),
-          ],
-        );
-      },
+          // ──── BODY KONTEN ────
+          Expanded(
+            child: FutureBuilder<Map<String, dynamic>>(
+              future: _future,
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting &&
+                    _cachedData == null) {
+                  return const Center(
+                    child: LoadingView(label: 'Memuat kalender akademik...'),
+                  );
+                }
+                if (snap.hasError && _cachedData == null) {
+                  return ErrorRetry(
+                    message: errorText(snap.error!),
+                    onRetry: _reload,
+                  );
+                }
+                if (snap.hasData) {
+                  _cachedData = snap.data;
+                }
+                if (_cachedData == null || _cachedData!.isEmpty) {
+                  return const EmptyView(message: 'Data kalender akademik tidak ditemukan');
+                }
+                return RefreshIndicator(
+                  color: AppColors.upiYellowDeep,
+                  backgroundColor:
+                      isDark ? const Color(0xFF1E1E22) : Colors.white,
+                  onRefresh: () async {
+                    _reload();
+                    await _future;
+                  },
+                  child: _buildBody(context, _cachedData!),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildHeroCard(
-    BuildContext context,
-    Map<String, dynamic> detail,
-    List<String> tahunOptions,
-  ) {
+  // ────────────────────────────────────────────────── HEADER KUNING DENGAN LEKUKAN BERSAMBUNG
+  Widget _buildCurvedYellowHeader() {
+    final canPop = Navigator.of(context).canPop();
+
+    return ClipPath(
+      clipper: const SeamlessWaveClipper(),
+      child: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: _yellowHeaderGradient,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 12, 22, kCurvedHeaderBottomPadding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top Row: Back + Title + Action buttons (Cetak & Refresh)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (canPop) ...[
+                          IconButton(
+                            onPressed: () {
+                              Navigator.of(context).maybePop();
+                            },
+                            icon: const Icon(Icons.arrow_back_rounded,
+                                color: Colors.white, size: 24),
+                            tooltip: 'Kembali',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        const Text(
+                          'Kalender Akademik',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 21,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.4,
+                            ),
+                          ),
+                      ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          onPressed: () {
+                            HapticFeedback.selectionClick();
+                            _showActionSheet(_cachedData ?? {});
+                          },
+                          icon: const Icon(Icons.print_rounded,
+                              color: Colors.white, size: 22),
+                          tooltip: 'Pilihan Cetak',
+                          splashRadius: 20,
+                          padding: const EdgeInsets.all(6),
+                          constraints: const BoxConstraints(),
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          onPressed: () {
+                            HapticFeedback.selectionClick();
+                            _reload();
+                          },
+                          icon: const Icon(Icons.refresh_rounded,
+                              color: Colors.white, size: 22),
+                          tooltip: 'Muat Ulang',
+                          splashRadius: 20,
+                          padding: const EdgeInsets.all(6),
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // Info Baris Kalender
+                Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.22),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.85),
+                          width: 1.8,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Center(
+                        child: Icon(Icons.calendar_month_rounded,
+                            color: Colors.white, size: 24),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'UPI YPTK Padang',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16.5,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              const Text(
+                                'Agenda Resmi Kuliah & Ujian',
+                                style: TextStyle(
+                                  color: Color(0xE6FFFFFF),
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w500,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.25),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  'TA $_tahun',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.4,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ────────────────────────────────────────────────── FLOATING TAHUN PILL
+  Widget _buildFloatingTahunPill(
+      BuildContext context, bool isDark, List<String> tahunOptions) {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E1E22) : Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: isDark
+                  ? Colors.black.withValues(alpha: 0.40)
+                  : Colors.black.withValues(alpha: 0.08),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: PillDropdown(
+          value: tahunOptions.contains(_tahun) ? _tahun : tahunOptions.first,
+          hint: 'Pilih Tahun Akademik',
+          items: [
+            for (final t in tahunOptions)
+              DropdownMenuItem<String>(
+                value: t,
+                child: Text(
+                  'Tahun Akademik $t',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+          onChanged: (val) {
+            if (val != null && val != _tahun) {
+              HapticFeedback.selectionClick();
+              setState(() {
+                _tahun = val;
+                _cachedData = null;
+              });
+              _reload();
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  // ────────────────────────────────────────────────── BODY
+  Widget _buildBody(BuildContext context, Map<String, dynamic> data) {
+    final detail = asMap(data['detail_aktif']);
+    final metrics = asMap(data['metrics']);
+    final catatan = pickString(detail, ['catatan'], '');
+    final diperbarui = pickString(detail, ['diperbarui'], '');
+    final rawKegiatan = detail['kegiatan'];
+    final List<Map<String, dynamic>> allKegiatan = [];
+    if (rawKegiatan is List) {
+      for (final k in rawKegiatan) {
+        if (k is Map) allKegiatan.add(asMap(k));
+      }
+    }
+
+    // Hitung pembagian semester
+    final List<Map<String, dynamic>> ganjilList = [];
+    final List<Map<String, dynamic>> genapList = [];
+    for (final item in allKegiatan) {
+      final grup = pickString(item, ['grup'], '').toLowerCase();
+      if (grup.contains('genap')) {
+        genapList.add(item);
+      } else {
+        ganjilList.add(item);
+      }
+    }
+
+    // Terapkan filter semester
+    List<Map<String, dynamic>> filtered = allKegiatan;
+    if (_selectedSemester == 'ganjil') {
+      filtered = ganjilList;
+    } else if (_selectedSemester == 'genap') {
+      filtered = genapList;
+    }
+
+    // Terapkan pencarian lokal jika query diisi
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      filtered = filtered.where((item) {
+        final keg = pickString(item, ['kegiatan'], '').toLowerCase();
+        final jad = pickString(item, ['jadwal'], '').toLowerCase();
+        return keg.contains(q) || jad.contains(q);
+      }).toList();
+    }
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 104),
+      children: [
+        // 1. Hero Card: Judul Kalender & Tombol Cetak
+        _buildHeroCard(context, detail),
+        const SizedBox(height: 14),
+
+        // 2. Kotak Catatan Resmi (jika ada)
+        if (catatan.isNotEmpty) ...[
+          _buildNoticeBanner(context, catatan, diperbarui),
+          const SizedBox(height: 14),
+        ],
+
+        // 3. Kartu Metrik Ringkasan
+        if (metrics.isNotEmpty) ...[
+          _buildMetricsGrid(context, metrics),
+          const SizedBox(height: 16),
+        ],
+
+        // 4. Search Bar & Filter Semester
+        _buildSearchAndFilters(
+          context,
+          ganjilCount: ganjilList.length,
+          genapCount: genapList.length,
+          totalCount: allKegiatan.length,
+        ),
+        const SizedBox(height: 14),
+
+        // 5. Daftar Agenda Kegiatan
+        if (filtered.isEmpty) ...[
+          _buildNeuCard(
+            context: context,
+            padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.event_busy_rounded,
+                  size: 48,
+                  color: context.textMuted.withValues(alpha: 0.5),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  _searchQuery.isNotEmpty
+                      ? 'Tidak ditemukan agenda yang sesuai dengan "$_searchQuery".'
+                      : 'Belum ada agenda pada semester yang dipilih.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: context.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ] else ...[
+          _buildAgendaGrouped(context, filtered),
+        ],
+
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  // ────────────────────────────────────────────────── HERO CARD
+  Widget _buildHeroCard(BuildContext context, Map<String, dynamic> detail) {
     final judul = pickString(
       detail,
       ['judul'],
       'Kalender Akademik Universitas TA $_tahun',
     );
 
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.upiYellowDeep,
-            AppColors.upiYellowDeep.withValues(alpha: 0.88),
-            AppColors.indigo900,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.upiYellowDeep.withValues(alpha: 0.25),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
+    return _buildNeuCard(
+      context: context,
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -436,12 +756,23 @@ class _KalenderScreenState extends State<KalenderScreen> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(10),
+                  gradient: const LinearGradient(
+                    colors: [AppColors.amber, AppColors.upiYellowDeep],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.upiYellowDeep.withValues(alpha: 0.25),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
-                child: const Icon(Icons.calendar_month_rounded,
+                child: const Icon(Icons.event_available_rounded,
                     color: Colors.white, size: 22),
               ),
               const SizedBox(width: 12),
@@ -454,85 +785,85 @@ class _KalenderScreenState extends State<KalenderScreen> {
                       style: TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w800,
-                        letterSpacing: 0.8,
-                        color: Colors.white70,
+                        letterSpacing: 0.6,
+                        color: AppColors.upiYellowDeep,
                       ),
                     ),
+                    const SizedBox(height: 2),
                     Text(
                       judul,
-                      style: const TextStyle(
-                        fontSize: 15.5,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w800,
+                        color: context.textPrimary,
+                        height: 1.25,
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
             ],
           ),
+
+          const SizedBox(height: 14),
+          Divider(height: 1, color: context.border),
           const SizedBox(height: 14),
 
-          // Baris Dropdown Tahun & Tombol Cetak Cepat
+          // Tombol Cetak Cepat
           Row(
             children: [
               Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.08),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
+                child: IosBounceTap(
+                  onTap: () => _cetakPdfInstan(_cachedData ?? {}),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: _yellowHeaderGradient,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                    ],
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: tahunOptions.contains(_tahun) ? _tahun : tahunOptions.first,
-                      isExpanded: true,
-                      icon: const Icon(Icons.arrow_drop_down_rounded,
-                          color: AppColors.upiYellowDeep),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1D2430),
-                      ),
-                      items: [
-                        for (final t in tahunOptions)
-                          DropdownMenuItem<String>(
-                            value: t,
-                            child: Text('Tahun Akademik $t'),
-                          ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.upiYellowDeep.withValues(alpha: 0.35),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
                       ],
-                      onChanged: (val) {
-                        if (val != null && val != _tahun) {
-                          setState(() => _tahun = val);
-                          _pageKey.currentState?.reload();
-                        }
-                      },
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.bolt_rounded, size: 18, color: Colors.white),
+                        SizedBox(width: 6),
+                        Text(
+                          'Cetak / Simpan PDF (Instan)',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
-              FilledButton.icon(
-                onPressed: () => _bukaLembarCetak(_lastLoadedData ?? {}),
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: AppColors.upiYellowDeep,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+              const SizedBox(width: 8),
+              IosBounceTap(
+                onTap: () => _showActionSheet(_cachedData ?? {}),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                  decoration: BoxDecoration(
+                    color: context.card,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: context.border),
                   ),
-                ),
-                icon: const Icon(Icons.print_rounded, size: 16),
-                label: const Text(
-                  'Cetak',
-                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                  child: Icon(Icons.more_horiz_rounded,
+                      size: 20, color: context.textPrimary),
                 ),
               ),
             ],
@@ -542,23 +873,27 @@ class _KalenderScreenState extends State<KalenderScreen> {
     );
   }
 
+  // ────────────────────────────────────────────────── NOTICE BANNER
   Widget _buildNoticeBanner(
     BuildContext context,
     String catatan,
     String diperbarui,
   ) {
-    return Container(
+    return _buildNeuCard(
+      context: context,
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.amber.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.amber.withValues(alpha: 0.35)),
-      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline_rounded,
-              color: AppColors.upiYellowDark, size: 18),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppColors.amber.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.info_outline_rounded,
+                color: AppColors.upiYellowDeep, size: 18),
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -566,10 +901,10 @@ class _KalenderScreenState extends State<KalenderScreen> {
               children: [
                 Text(
                   catatan,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF92400E),
+                    color: context.textPrimary,
                     height: 1.35,
                   ),
                 ),
@@ -580,7 +915,7 @@ class _KalenderScreenState extends State<KalenderScreen> {
                     style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w500,
-                      color: AppColors.upiYellowDark.withValues(alpha: 0.85),
+                      color: context.textMuted,
                     ),
                   ),
                 ],
@@ -592,20 +927,22 @@ class _KalenderScreenState extends State<KalenderScreen> {
     );
   }
 
+  // ────────────────────────────────────────────────── METRICS GRID
   Widget _buildMetricsGrid(BuildContext context, Map<String, dynamic> metrics) {
     final totalKalender = pickString(metrics, ['total_kalender'], '1 Dokumen');
-    final totalKalenderDesc = pickString(metrics, ['total_kalender_desc'], 'Informasi tersedia');
+    final totalKalenderDesc = pickString(metrics, ['total_kalender_desc'], 'Informasi');
     final tahunAkd = pickString(metrics, ['tahun_akademik'], '1 Periode');
     final tahunAkdDesc = pickString(metrics, ['tahun_akademik_desc'], 'Dapat dipilih');
     final pembaruan = pickString(metrics, ['pembaruan_terakhir'], '-');
-    final pembaruanDesc = pickString(metrics, ['pembaruan_terakhir_desc'], 'Publikasi terbaru');
+    final pembaruanDesc = pickString(metrics, ['pembaruan_terakhir_desc'], 'Publikasi');
     final status = pickString(metrics, ['status_informasi'], 'Resmi');
-    final statusDesc = pickString(metrics, ['status_informasi_desc'], 'Sistem akademik');
+    final statusDesc = pickString(metrics, ['status_informasi_desc'], 'Sistem');
 
     return Row(
       children: [
         Expanded(
           child: _buildMetricItem(
+            context,
             'Dokumen',
             totalKalender,
             totalKalenderDesc,
@@ -616,6 +953,7 @@ class _KalenderScreenState extends State<KalenderScreen> {
         const SizedBox(width: 8),
         Expanded(
           child: _buildMetricItem(
+            context,
             'Periode',
             tahunAkd,
             tahunAkdDesc,
@@ -626,6 +964,7 @@ class _KalenderScreenState extends State<KalenderScreen> {
         const SizedBox(width: 8),
         Expanded(
           child: _buildMetricItem(
+            context,
             'Pembaruan',
             pembaruan,
             pembaruanDesc,
@@ -636,6 +975,7 @@ class _KalenderScreenState extends State<KalenderScreen> {
         const SizedBox(width: 8),
         Expanded(
           child: _buildMetricItem(
+            context,
             'Status',
             status,
             statusDesc,
@@ -648,47 +988,44 @@ class _KalenderScreenState extends State<KalenderScreen> {
   }
 
   Widget _buildMetricItem(
+    BuildContext context,
     String label,
     String value,
     String desc,
     IconData icon,
     Color color,
   ) {
-    return Container(
+    return _buildNeuCard(
+      context: context,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
       child: Column(
         children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(icon, size: 14, color: color),
+          ),
+          const SizedBox(height: 6),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11.5,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF1D2430),
+              fontWeight: FontWeight.w900,
+              color: context.textPrimary,
             ),
           ),
           const SizedBox(height: 2),
           Text(
             label,
             maxLines: 1,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 9.5,
-              color: Color(0xFF64748B),
+              color: context.textMuted,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -697,31 +1034,37 @@ class _KalenderScreenState extends State<KalenderScreen> {
     );
   }
 
-  Widget _buildSearchAndFilters(int ganjilCount, int genapCount, int totalCount) {
+  // ────────────────────────────────────────────────── SEARCH & FILTERS
+  Widget _buildSearchAndFilters(
+    BuildContext context, {
+    required int ganjilCount,
+    required int genapCount,
+    required int totalCount,
+  }) {
     return Column(
       children: [
         // Search bar
-        TextField(
-          controller: _searchCtrl,
-          decoration: InputDecoration(
-            hintText: 'Cari agenda, jadwal, UTS, UAS, Wisuda...',
-            prefixIcon: const Icon(Icons.search_rounded, size: 20),
-            suffixIcon: _searchQuery.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.clear_rounded, size: 18),
-                    onPressed: () => _searchCtrl.clear(),
-                  )
-                : null,
-            filled: true,
-            fillColor: Colors.white,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+        _buildNeuCard(
+          context: context,
+          padding: EdgeInsets.zero,
+          child: TextField(
+            controller: _searchCtrl,
+            style: TextStyle(fontSize: 13, color: context.textPrimary),
+            decoration: InputDecoration(
+              hintText: 'Cari agenda, jadwal, UTS, UAS, Wisuda...',
+              hintStyle: TextStyle(fontSize: 12.5, color: context.textMuted),
+              prefixIcon: Icon(Icons.search_rounded,
+                  size: 20, color: context.textMuted),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear_rounded, size: 18),
+                      onPressed: () => _searchCtrl.clear(),
+                    )
+                  : null,
+              isDense: true,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              border: InputBorder.none,
             ),
           ),
         ),
@@ -732,11 +1075,11 @@ class _KalenderScreenState extends State<KalenderScreen> {
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              _buildFilterChip('all', 'Semua Agenda ($totalCount)'),
+              _buildFilterChip(context, 'all', 'Semua Agenda ($totalCount)'),
               const SizedBox(width: 8),
-              _buildFilterChip('ganjil', 'Semester Ganjil ($ganjilCount)'),
+              _buildFilterChip(context, 'ganjil', 'Semester Ganjil ($ganjilCount)'),
               const SizedBox(width: 8),
-              _buildFilterChip('genap', 'Semester Genap ($genapCount)'),
+              _buildFilterChip(context, 'genap', 'Semester Genap ($genapCount)'),
             ],
           ),
         ),
@@ -744,30 +1087,50 @@ class _KalenderScreenState extends State<KalenderScreen> {
     );
   }
 
-  Widget _buildFilterChip(String key, String label) {
+  Widget _buildFilterChip(BuildContext context, String key, String label) {
     final isSelected = _selectedSemester == key;
-    return ChoiceChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: (_) => setState(() => _selectedSemester = key),
-      selectedColor: AppColors.upiYellowDeep.withValues(alpha: 0.18),
-      labelStyle: TextStyle(
-        fontSize: 11.5,
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-        color: isSelected ? AppColors.upiYellowDeep : const Color(0xFF475569),
-      ),
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(
-          color: isSelected ? AppColors.upiYellowDeep : const Color(0xFFE2E8F0),
+    return IosBounceTap(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() => _selectedSemester = key);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.upiYellowDeep.withValues(alpha: 0.14)
+              : (context.isDark ? const Color(0xFF1C1C1E) : Colors.white),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? AppColors.upiYellowDeep.withValues(alpha: 0.6)
+                : context.border,
+            width: isSelected ? 1.4 : 1.0,
+          ),
+          boxShadow: [
+            if (!isSelected)
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+          ],
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+            color: isSelected ? AppColors.upiYellowDeep : context.textPrimary,
+          ),
         ),
       ),
-      showCheckmark: false,
     );
   }
 
-  Widget _buildAgendaGrouped(List<Map<String, dynamic>> items) {
+  // ────────────────────────────────────────────────── AGENDA GROUPED
+  Widget _buildAgendaGrouped(BuildContext context, List<Map<String, dynamic>> items) {
     // Kelompokkan kegiatan berdasarkan grup/semester
     final Map<String, List<Map<String, dynamic>>> grouped = {};
     for (final it in items) {
@@ -781,68 +1144,74 @@ class _KalenderScreenState extends State<KalenderScreen> {
     return Column(
       children: [
         for (final entry in grouped.entries) ...[
-          _buildGroupCard(entry.key, entry.value),
+          _buildGroupCard(context, entry.key, entry.value),
           const SizedBox(height: 16),
         ],
       ],
     );
   }
 
-  Widget _buildGroupCard(String groupTitle, List<Map<String, dynamic>> list) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
+  Widget _buildGroupCard(BuildContext context, String groupTitle, List<Map<String, dynamic>> list) {
+    return _buildNeuCard(
+      context: context,
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header Judul Semester
+          // Header Judul Semester (gradient emas premium)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: const BoxDecoration(
-              color: Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(13)),
+              gradient: LinearGradient(
+                colors: _yellowHeaderGradient,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.event_note_rounded,
-                        color: Color(0xFF263B62), size: 17),
-                    const SizedBox(width: 8),
+                    Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.22),
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      child: const Icon(Icons.event_note_rounded,
+                          color: Colors.white, size: 17),
+                    ),
+                    const SizedBox(width: 10),
                     Text(
                       groupTitle.toUpperCase(),
                       style: const TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 13,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF263B62),
-                        letterSpacing: 0.3,
+                        color: Colors.white,
+                        letterSpacing: 0.4,
                       ),
                     ),
                   ],
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF263B62).withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(12),
+                    color: Colors.white.withValues(alpha: 0.24),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.5),
+                      width: 1,
+                    ),
                   ),
                   child: Text(
                     '${list.length} Kegiatan',
                     style: const TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF263B62),
+                      color: Colors.white,
                     ),
                   ),
                 ),
@@ -852,15 +1221,15 @@ class _KalenderScreenState extends State<KalenderScreen> {
 
           // List Items
           for (int i = 0; i < list.length; i++) ...[
-            if (i > 0) const Divider(height: 1, color: Color(0xFFF1F5F9)),
-            _buildAgendaTile(list[i]),
+            if (i > 0) Divider(height: 1, color: context.border),
+            _buildAgendaTile(context, list[i]),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildAgendaTile(Map<String, dynamic> item) {
+  Widget _buildAgendaTile(BuildContext context, Map<String, dynamic> item) {
     final no = pickString(item, ['no'], '').trim();
     final kegiatan = pickString(item, ['kegiatan'], 'Kegiatan');
     final jadwal = pickString(item, ['jadwal'], '-');
@@ -868,44 +1237,98 @@ class _KalenderScreenState extends State<KalenderScreen> {
     final isSubItem = no.isEmpty;
     final (iconData, categoryColor) = _getCategoryIconAndColor(kegiatan);
 
-    return InkWell(
-      onLongPress: () {
+    return IosBounceTap(
+      onTap: () {
         Clipboard.setData(ClipboardData(text: '$kegiatan: $jadwal'));
         appToast(context, 'Agenda disalin ke clipboard.');
       },
-      child: Padding(
-        padding: EdgeInsets.only(
-          left: isSubItem ? 38 : 14,
-          right: 14,
-          top: isSubItem ? 8 : 12,
-          bottom: isSubItem ? 8 : 12,
+      child: Container(
+        margin: EdgeInsets.only(
+          left: isSubItem ? 26 : 10,
+          right: 10,
+          top: isSubItem ? 3 : 7,
+          bottom: isSubItem ? 3 : 7,
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Icon kategori atau bullet subitem
-            if (!isSubItem) ...[
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: categoryColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
+        decoration: BoxDecoration(
+          color: context.isDark
+              ? const Color(0xFF232327)
+              : (isSubItem ? Colors.transparent : const Color(0xFFFDFDFE)),
+          borderRadius: BorderRadius.circular(12),
+          border: isSubItem
+              ? null
+              : Border.all(color: context.border, width: 0.8),
+          boxShadow: isSubItem
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: context.isDark ? 0.0 : 0.03),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+        ),
+        child: Padding(
+          padding: EdgeInsets.only(
+            left: 12,
+            right: 12,
+            top: isSubItem ? 9 : 11,
+            bottom: isSubItem ? 9 : 11,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Accent bar kiri untuk item utama
+              if (!isSubItem)
+                Container(
+                  width: 4,
+                  height: 44,
+                  margin: const EdgeInsets.only(right: 10),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        categoryColor,
+                        categoryColor.withValues(alpha: 0.4),
+                      ],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
-                child: Icon(iconData, color: categoryColor, size: 18),
-              ),
-              const SizedBox(width: 12),
-            ] else ...[
-              Container(
-                width: 6,
-                height: 6,
-                margin: const EdgeInsets.only(top: 6, right: 10),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF94A3B8),
-                  shape: BoxShape.circle,
+              // Icon kategori atau bullet subitem
+              if (!isSubItem) ...[
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        categoryColor.withValues(alpha: 0.18),
+                        categoryColor.withValues(alpha: 0.08),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: categoryColor.withValues(alpha: 0.25),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Icon(iconData, color: categoryColor, size: 18),
                 ),
-              ),
-            ],
+                const SizedBox(width: 11),
+              ] else ...[
+                Container(
+                  width: 7,
+                  height: 7,
+                  margin: const EdgeInsets.only(top: 6, right: 11),
+                  decoration: BoxDecoration(
+                    color: context.textMuted.withValues(alpha: 0.6),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ],
 
             // Detail Kegiatan & Jadwal
             Expanded(
@@ -918,17 +1341,17 @@ class _KalenderScreenState extends State<KalenderScreen> {
                       if (no.isNotEmpty)
                         Container(
                           margin: const EdgeInsets.only(right: 6, top: 1),
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(4),
+                            color: categoryColor.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(5),
                           ),
                           child: Text(
                             no,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
-                              color: Color(0xFF475569),
+                              color: categoryColor,
                             ),
                           ),
                         ),
@@ -938,23 +1361,25 @@ class _KalenderScreenState extends State<KalenderScreen> {
                           style: TextStyle(
                             fontSize: isSubItem ? 11.5 : 12.5,
                             fontWeight: isSubItem ? FontWeight.w500 : FontWeight.w700,
-                            color: const Color(0xFF1E293B),
+                            color: context.textPrimary,
+                            height: 1.3,
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 6),
 
                   // Jadwal Chip
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                          color: context.isDark
+                              ? const Color(0xFF2C2C2E)
+                              : AppColors.upiYellowLight.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(7),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -964,10 +1389,12 @@ class _KalenderScreenState extends State<KalenderScreen> {
                             const SizedBox(width: 5),
                             Text(
                               jadwal,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF334155),
+                                color: context.isDark
+                                    ? AppColors.upiYellowBright
+                                    : AppColors.upiYellowDeep,
                               ),
                             ),
                           ],
@@ -981,6 +1408,7 @@ class _KalenderScreenState extends State<KalenderScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 }

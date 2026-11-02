@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -8,7 +7,7 @@ import '../state/auth_provider.dart';
 import '../state/theme_provider.dart';
 import '../theme/app_theme.dart';
 
-/// Halaman login bergaya iOS Sign-In bersih dan modern.
+/// Halaman login bersih, rapi, dan modern.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -89,9 +88,12 @@ class _LoginScreenState extends State<LoginScreen> {
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: IntrinsicHeight(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 440),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
                       // Bar atas: Tombol Switcher Tema minimalis di pojok kanan (tidak mengganggu)
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
@@ -108,14 +110,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                 shape: BoxShape.circle,
                                 border: Border.all(
                                   color: context.border,
-                                  width: 0.5,
+                                  width: 1,
                                 ),
                               ),
                               child: Icon(
                                 isDark
-                                    ? CupertinoIcons.sun_max_fill
-                                    : CupertinoIcons.moon_stars_fill,
-                                size: 18,
+                                    ? Icons.light_mode_rounded
+                                    : Icons.dark_mode_rounded,
+                                size: 19,
                                 color: isDark
                                     ? AppColors.primaryYellow
                                     : const Color(0xFF1C1917),
@@ -150,7 +152,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: const Icon(
                             Icons.school_rounded,
                             size: 44,
-                            color: Color(0xFF1C1917),
+                            color: Colors.white,
                           ),
                         ),
                       ),
@@ -182,13 +184,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                 width: 0.8,
                               ),
                             ),
-                            child: const Text(
+                            child: Text(
                               'UNOFFICIAL',
                               style: TextStyle(
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 0.5,
-                                color: Color(0xFFD4A30A),
+                                color: context.primaryContrast,
                               ),
                             ),
                           ),
@@ -197,10 +199,21 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const SizedBox(height: 6),
                       Text(
-                        'Sistem Informasi Akademik Mahasiswa',
+                        'Universitas Putra Indonesia YPTK Padang',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: context.textPrimary,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Portal Layanan Akademik & Kemahasiswaan',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
                           fontWeight: FontWeight.w400,
                           color: context.textMuted,
                           letterSpacing: -0.2,
@@ -208,6 +221,45 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
 
                       const SizedBox(height: 36),
+
+                      // Banner Peringatan Sesi Kedaluwarsa
+                      Builder(builder: (ctx) {
+                        final expired = ctx.watch<AuthProvider>().expired;
+                        if (!expired || _error != null) return const SizedBox.shrink();
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
+                              width: 1,
+                            ),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(
+                                Icons.timer_outlined,
+                                size: 19,
+                                color: Color(0xFFD97706),
+                              ),
+                              SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Sesi Anda telah berakhir atau tidak valid. Silakan login kembali.',
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    color: Color(0xFFB45309),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
 
                       // Pesan Error jika ada
                       if (_error != null) ...[
@@ -219,14 +271,14 @@ class _LoginScreenState extends State<LoginScreen> {
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: AppColors.red.withValues(alpha: 0.25),
-                              width: 0.5,
+                              width: 1,
                             ),
                           ),
                           child: Row(
                             children: [
                               const Icon(
-                                CupertinoIcons.exclamationmark_circle_fill,
-                                size: 16,
+                                Icons.error_outline_rounded,
+                                size: 18,
                                 color: AppColors.red,
                               ),
                               const SizedBox(width: 8),
@@ -246,15 +298,24 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(height: 18),
                       ],
 
-                      // Formulir Masuk: iOS Inset Grouped Section (NIM & Password dalam 1 wadah)
+                      // Formulir Masuk: Container Card Bersih (NIM & Password)
                       Container(
                         decoration: BoxDecoration(
                           color: context.card,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: context.border,
-                            width: 0.5,
+                            width: 1,
                           ),
+                          boxShadow: context.isDark
+                              ? null
+                              : [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.03),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
                         ),
                         child: Column(
                           children: [
@@ -277,7 +338,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   fontWeight: FontWeight.w400,
                                 ),
                                 prefixIcon: Icon(
-                                  CupertinoIcons.person_crop_square,
+                                  Icons.badge_outlined,
                                   size: 20,
                                   color: context.textMuted,
                                 ),
@@ -287,10 +348,10 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
 
-                            // Garis pemisah hairline khas iOS Inset Grouped
+                            // Garis pemisah
                             Divider(
-                              height: 0.5,
-                              thickness: 0.5,
+                              height: 1,
+                              thickness: 1,
                               indent: 48,
                               color: context.border,
                             ),
@@ -315,7 +376,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   fontWeight: FontWeight.w400,
                                 ),
                                 prefixIcon: Icon(
-                                  CupertinoIcons.lock,
+                                  Icons.lock_outline_rounded,
                                   size: 20,
                                   color: context.textMuted,
                                 ),
@@ -324,9 +385,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                       setState(() => _obscure = !_obscure),
                                   icon: Icon(
                                     _obscure
-                                        ? CupertinoIcons.eye_slash
-                                        : CupertinoIcons.eye,
-                                    size: 19,
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                    size: 20,
                                     color: context.textMuted,
                                   ),
                                 ),
@@ -348,7 +409,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           onPressed: _loading ? null : _submit,
                           style: FilledButton.styleFrom(
                             backgroundColor: AppColors.primaryYellow,
-                            foregroundColor: const Color(0xFF1C1917),
+                            foregroundColor: Colors.white,
                             elevation: 0,
                             disabledBackgroundColor:
                                 AppColors.primaryYellow.withValues(alpha: 0.5),
@@ -357,9 +418,14 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           child: _loading
-                              ? const CupertinoActivityIndicator(
-                                  color: Color(0xFF1C1917),
-                                  radius: 10,
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white),
+                                  ),
                                 )
                               : const Text(
                                   'Masuk',
@@ -367,7 +433,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     fontSize: 16,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: -0.3,
-                                    color: Color(0xFF1C1917),
+                                    color: Colors.white,
                                   ),
                                 ),
                         ),
@@ -379,7 +445,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 18),
                         child: Text(
-                          'SIAKAD UNOFFICIAL • v1.0.0',
+                          'SIAKAD UNOFFICIAL • v1.0.2',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 11,
@@ -390,6 +456,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ],
+                  ),
+                  ),
                   ),
                 ),
               ),

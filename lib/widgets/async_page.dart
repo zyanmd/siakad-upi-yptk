@@ -98,8 +98,8 @@ class AsyncPageState<T> extends State<AsyncPage<T>> {
                   return const EmptyView();
                 }
                 return RefreshIndicator(
-                  color: AppColors.indigo700,
-                  backgroundColor: Colors.white,
+                  color: AppColors.primaryYellow,
+                  backgroundColor: context.card,
                   onRefresh: refresh,
                   child: widget.builder(context, _data as T),
                 );

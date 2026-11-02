@@ -10,6 +10,7 @@ import '../theme/app_theme.dart';
 import '../utils/smart.dart';
 import '../utils/transkrip_pdf.dart';
 import '../widgets/common.dart';
+import '../widgets/gradient_header.dart';
 
 /// Halaman tampilan resmi lembar cetak Transkrip Nilai Akademik
 /// yang menampilkan dokumen cetak resmi lintas periode di dalam aplikasi
@@ -484,46 +485,44 @@ class _TranskripCetakScreenState extends State<TranskripCetakScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Lembar Cetak Transkrip',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            Text('Transkrip Nilai Akademik Resmi',
-                style: TextStyle(fontSize: 11, color: Colors.white70)),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.copy_rounded),
-            tooltip: 'Salin Ringkasan Transkrip',
-            onPressed: () async {
-              final data = await _future;
-              if (mounted && data.isNotEmpty) _salinRincian(data);
-            },
+      backgroundColor: context.bg,
+      body: Column(
+        children: [
+          GradientHeader(
+            title: 'Lembar Cetak Transkrip',
+            subtitle: 'Transkrip Nilai Akademik Resmi Lintas Periode',
+            leading: Navigator.of(context).canPop() ? const HeaderBackButton() : null,
+            actions: [
+              HeaderActionButton(
+                icon: Icons.copy_rounded,
+                tooltip: 'Salin Ringkasan Transkrip',
+                onPressed: () async {
+                  final data = await _future;
+                  if (mounted && data.isNotEmpty) _salinRincian(data);
+                },
+              ),
+              HeaderActionButton(
+                icon: Icons.public_rounded,
+                tooltip: 'Buka di Web SIAKAD',
+                onPressed: () async {
+                  final data = await _future;
+                  final url = pickString(data, ['url'], '');
+                  if (url.isNotEmpty && url.startsWith('http') && context.mounted) {
+                    await openExternal(context, url);
+                  }
+                },
+              ),
+              HeaderActionButton(
+                icon: Icons.refresh_rounded,
+                tooltip: 'Muat Ulang',
+                onPressed: () => setState(() => _future = _loadData()),
+              ),
+            ],
           ),
-          IconButton(
-            icon: const Icon(Icons.open_in_browser_rounded),
-            tooltip: 'Buka di Web SIAKAD',
-            onPressed: () async {
-              final data = await _future;
-              final url = pickString(data, ['url'], '');
-              if (url.isNotEmpty && url.startsWith('http')) {
-                if (context.mounted) await openExternal(context, url);
-              } else {
-                if (context.mounted) {
-                  appToast(context, 'Tautan cetak web tidak tersedia.', error: true);
-                }
-              }
-            },
-          ),
-          const SizedBox(width: 4),
-        ],
-      ),
-      body: FutureBuilder<Map<String, dynamic>>(
-        future: _future,
-        builder: (context, snapshot) {
+          Expanded(
+            child: FutureBuilder<Map<String, dynamic>>(
+              future: _future,
+              builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
                 child: LoadingView(label: 'Memuat lembar cetak transkrip...'));
@@ -667,7 +666,10 @@ class _TranskripCetakScreenState extends State<TranskripCetakScreen> {
           );
         },
       ),
-    );
+    ),
+  ],
+),
+);
   }
 }
 

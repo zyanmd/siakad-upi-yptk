@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 import '../services/session_store.dart';
 import '../utils/smart.dart';
 
@@ -45,6 +46,9 @@ class AuthProvider extends ChangeNotifier {
     _sessionId = _store.sessionIdCached;
     _user = _store.userCached;
     _booted = true;
+    if (_sessionId != null && nim != '-') {
+      NotificationService.instance.onLogin(nim);
+    }
     notifyListeners();
   }
 
@@ -69,6 +73,10 @@ class AuthProvider extends ChangeNotifier {
     expired = false;
     await _store.saveAuth(sid, _user);
     await _store.saveUsername(username);
+
+    // Daftarkan NIM ke OneSignal untuk push notification pengingat kuliah
+    NotificationService.instance.onLogin(username);
+
     notifyListeners();
   }
 
@@ -84,6 +92,32 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Validasi apakah sesi yang tersimpan di memori/storage masih aktif di server.
+  /// Bila sesi sudah kadaluarsa (HTTP 401), otomatis hapus sesi dan tandai [expired] = true.
+  Future<bool> validateSession() async {
+    if (_sessionId == null) return false;
+    try {
+      final resp = await _auth.me();
+      final map = asMap(resp);
+      if (map['success'] == true) {
+        if (map['user'] is Map) {
+          _user = asMap(map['user']);
+          await _store.saveAuth(_sessionId!, _user);
+        }
+        return true;
+      }
+      _onUnauthorized();
+      return false;
+    } catch (e) {
+      if (e is ApiException && (e.isAuthError || e.statusCode == 401)) {
+        _onUnauthorized();
+        return false;
+      }
+      // Error koneksi/offline sementara: jangan paksa logout
+      return true;
+    }
+  }
+
   /// Logout + bersihkan penyimpanan lokal.
   Future<void> logout({bool callApi = true}) async {
     if (callApi && _sessionId != null) {
@@ -96,6 +130,7 @@ class AuthProvider extends ChangeNotifier {
     _sessionId = null;
     _user = {};
     await _store.clearAuth();
+    NotificationService.instance.onLogout();
     notifyListeners();
   }
 
@@ -105,6 +140,7 @@ class AuthProvider extends ChangeNotifier {
     _user = {};
     expired = true;
     _store.clearAuth();
+    NotificationService.instance.onLogout();
     notifyListeners();
   }
 }

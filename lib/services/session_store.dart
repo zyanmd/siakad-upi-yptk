@@ -8,18 +8,21 @@ class SessionStore {
   static const _kUser = 'siakad.user';
   static const _kTheme = 'siakad.theme_mode';
   static const _kUsername = 'siakad.username';
+  static const _kLanguage = 'siakad.language';
 
   /// Cache in-memory agar header X-Session-Id bisa dibaca sinkron.
   String? sessionIdCached;
   Map<String, dynamic> userCached = {};
   String themeModeCached = 'system';
   String usernameCached = '';
+  String languageCached = 'id';
 
   Future<void> load() async {
     final sp = await SharedPreferences.getInstance();
     sessionIdCached = sp.getString(_kSession);
     themeModeCached = sp.getString(_kTheme) ?? 'system';
     usernameCached = sp.getString(_kUsername) ?? '';
+    languageCached = sp.getString(_kLanguage) ?? 'id';
     final rawUser = sp.getString(_kUser);
     if (rawUser != null) {
       try {
@@ -57,5 +60,11 @@ class SessionStore {
     themeModeCached = mode;
     final sp = await SharedPreferences.getInstance();
     await sp.setString(_kTheme, mode);
+  }
+
+  Future<void> saveLanguage(String lang) async {
+    languageCached = lang;
+    final sp = await SharedPreferences.getInstance();
+    await sp.setString(_kLanguage, lang);
   }
 }

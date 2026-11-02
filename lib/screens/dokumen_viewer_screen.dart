@@ -137,8 +137,8 @@ class _DokumenViewerScreenState extends State<DokumenViewerScreen> {
     return Scaffold(
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: AppColors.indigo950,
-        foregroundColor: Colors.white,
+        backgroundColor: context.card,
+        foregroundColor: context.textPrimary,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -146,18 +146,18 @@ class _DokumenViewerScreenState extends State<DokumenViewerScreen> {
               _judul,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 15,
+              style: TextStyle(
+                fontSize: 16.5,
                 fontWeight: FontWeight.w800,
-                color: Colors.white,
+                color: context.textPrimary,
               ),
             ),
             const SizedBox(height: 2),
             Text(
               '$_kategori ${_ukuran.isNotEmpty ? '• $_ukuran' : ''}',
-              style: const TextStyle(
-                fontSize: 11,
-                color: AppColors.amberLight,
+              style: TextStyle(
+                fontSize: 11.5,
+                color: context.primaryContrast,
                 fontWeight: FontWeight.w600,
               ),
             ),

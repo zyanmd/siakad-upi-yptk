@@ -10,6 +10,7 @@ import '../theme/app_theme.dart';
 import '../utils/kalender_pdf.dart';
 import '../utils/smart.dart';
 import '../widgets/common.dart';
+import '../widgets/gradient_header.dart';
 
 /// Halaman lembar cetak resmi Kalender Akademik UPI YPTK Padang.
 /// Menampilkan pratinjau dokumen kertas dan pratinjau PDF vektor instan (<30ms).
@@ -143,44 +144,46 @@ class _KalenderCetakScreenState extends State<KalenderCetakScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Lembar Kalender Akademik',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            Text('Dokumen Resmi Agenda Perkuliahan',
-                style: TextStyle(fontSize: 11, color: Colors.white70)),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.copy_rounded),
-            tooltip: 'Salin Agenda',
-            onPressed: () async {
-              final data = await _future;
-              if (mounted && data.isNotEmpty) _salinAgenda(data);
-            },
+      backgroundColor: context.bg,
+      body: Column(
+        children: [
+          GradientHeader(
+            title: 'Lembar Kalender Akademik',
+            subtitle: 'Dokumen Resmi Agenda Perkuliahan',
+            leading: Navigator.of(context).canPop() ? const HeaderBackButton() : null,
+            actions: [
+              HeaderActionButton(
+                icon: Icons.copy_rounded,
+                tooltip: 'Salin Agenda',
+                onPressed: () async {
+                  final data = await _future;
+                  if (mounted && data.isNotEmpty) _salinAgenda(data);
+                },
+              ),
+              HeaderActionButton(
+                icon: Icons.public_rounded,
+                tooltip: 'Buka di Web SIAKAD',
+                onPressed: () async {
+                  final data = await _future;
+                  final url = pickString(data, ['url', 'print_url'], '');
+                  if (url.isNotEmpty && url.startsWith('http')) {
+                    if (context.mounted) await openExternal(context, url);
+                  } else {
+                    if (context.mounted) {
+                      appToast(context, 'Tautan web tidak tersedia.', error: true);
+                    }
+                  }
+                },
+              ),
+              HeaderActionButton(
+                icon: Icons.refresh_rounded,
+                tooltip: 'Muat Ulang',
+                onPressed: () => setState(() => _future = _loadData()),
+              ),
+            ],
           ),
-          IconButton(
-            icon: const Icon(Icons.open_in_browser_rounded),
-            tooltip: 'Buka di Web SIAKAD',
-            onPressed: () async {
-              final data = await _future;
-              final url = pickString(data, ['url', 'print_url'], '');
-              if (url.isNotEmpty && url.startsWith('http')) {
-                if (context.mounted) await openExternal(context, url);
-              } else {
-                if (context.mounted) {
-                  appToast(context, 'Tautan web tidak tersedia.', error: true);
-                }
-              }
-            },
-          ),
-          const SizedBox(width: 4),
-        ],
-      ),
-      body: FutureBuilder<Map<String, dynamic>>(
+          Expanded(
+            child: FutureBuilder<Map<String, dynamic>>(
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -334,7 +337,10 @@ class _KalenderCetakScreenState extends State<KalenderCetakScreen> {
           );
         },
       ),
-    );
+    ),
+  ],
+),
+);
   }
 }
 

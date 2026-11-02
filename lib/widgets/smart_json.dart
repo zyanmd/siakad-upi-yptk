@@ -218,7 +218,7 @@ class SmartJson extends StatelessWidget {
                   height: 22,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: AppColors.amber.withOpacity(0.18),
+                    color: AppColors.amber.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(7),
                   ),
                   child: Text(

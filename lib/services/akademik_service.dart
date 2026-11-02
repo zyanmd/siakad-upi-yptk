@@ -101,6 +101,13 @@ class AkademikService {
       _api.get('/api/akademik/materi/kelas/$kelasToken',
           query: {'periode': periode});
 
+  /// Resolve link materi (pertemuan[].materi[].url) menjadi URL PDF/Drive langsung.
+  ///
+  /// Mengembalikan map dengan: kind (pdf|gdrive|external), final_url,
+  /// drive_file_id, pdf_url, ok, error.
+  Future<dynamic> materiResolve(String url) =>
+      _api.post('/api/akademik/materi/resolve', body: {'url': url});
+
   // ---------------------------------------------------------- Kartu Ujian
 
   Future<dynamic> kartuUjian(String jenis, String periode) =>

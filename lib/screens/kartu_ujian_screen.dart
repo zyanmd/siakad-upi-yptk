@@ -1,17 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../services/api_client.dart';
+import '../state/auth_provider.dart';
 import '../state/periode_provider.dart';
 import '../theme/app_theme.dart';
+import '../utils/format.dart';
 import '../utils/smart.dart';
-import '../widgets/async_page.dart';
 import '../widgets/common.dart';
-import '../widgets/gradient_header.dart';
 import '../widgets/periode_dropdown.dart';
 
+// ── UPI YPTK Academic Gold Gradient ──
+const _yellowHeaderGradient = [
+  Color(0xFFE5A620), // Bright Academic Gold
+  Color(0xFFD48B08), // UPI Yellow
+  Color(0xFFB87500), // Deep Academic Gold
+];
+
 /// Kartu Ujian (UTS, UAS, SISKOM) dengan identitas mahasiswa, status cetak,
-/// metrik ringkas, pencarian real-time, dan daftar mata kuliah terverifikasi.
+/// metrik ringkas, pencarian real-time, dan daftar mata kuliah terverifikasi
+/// berdesain Seamless Wave Header & Neumorphic UI.
 class KartuUjianScreen extends StatefulWidget {
   const KartuUjianScreen({super.key});
 
@@ -20,7 +29,6 @@ class KartuUjianScreen extends StatefulWidget {
 }
 
 class _KartuUjianScreenState extends State<KartuUjianScreen> {
-  final _pageKey = GlobalKey<AsyncPageState<Map<String, dynamic>>>();
   final TextEditingController _searchCtrl = TextEditingController();
   PeriodeProvider? _pp;
   String _jenis = 'uts'; // uts, uas, siskom
@@ -29,6 +37,9 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
   String _searchQuery = '';
   String _filterStatus = 'all'; // all, eligible, ineligible
   bool _isPrinting = false;
+
+  Future<Map<String, dynamic>>? _future;
+  Map<String, dynamic>? _cachedData;
 
   @override
   void initState() {
@@ -41,12 +52,13 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
       if (_pp!.items.isNotEmpty) {
         _periodeOpts = List.from(_pp!.items);
       }
+      _reload();
       _pp!.ensureLoaded().then((_) {
         if (mounted) {
           if (_periodeOpts.isEmpty && _pp!.items.isNotEmpty) {
             _periodeOpts = List.from(_pp!.items);
           }
-          _pageKey.currentState?.reload();
+          _reload();
         }
       });
     });
@@ -57,8 +69,14 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
       setState(() {
         _selectedPeriode = _pp!.value;
       });
-      _pageKey.currentState?.reload();
+      _reload();
     }
+  }
+
+  void _reload() {
+    setState(() {
+      _future = _load();
+    });
   }
 
   @override
@@ -74,8 +92,10 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
         context.read<PeriodeProvider>().value ??
         fallbackPeriode();
 
-    final resp = await api.get('/api/akademik/kartu-ujian',
-        query: {'jenis': _jenis, 'periode': p});
+    final resp = await api.get(
+      '/api/akademik/kartu-ujian',
+      query: {'jenis': _jenis, 'periode': p},
+    );
     final data = resp is Map ? (resp['data'] ?? resp) : resp;
     final mapData = asMap(data);
 
@@ -97,9 +117,11 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
       }
     }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() {});
-    });
+    if (mounted) {
+      setState(() {
+        _cachedData = mapData;
+      });
+    }
 
     return mapData;
   }
@@ -114,7 +136,7 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
     );
 
     if (!isEnabled) {
-      _showPrintInfoDialog(context, defaultMsg, data);
+      _showPrintInfoDialog(defaultMsg, data);
       return;
     }
 
@@ -136,12 +158,12 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
           ? pickString(asMap(resp), ['message'], defaultMsg)
           : defaultMsg;
 
+      if (!mounted) return;
+
       if (isSuccess && url != null && url.startsWith('http')) {
-        if (mounted) await openExternal(context, url);
+        await openExternal(context, url);
       } else {
-        if (mounted) {
-          _showPrintInfoDialog(context, msg, data);
-        }
+        _showPrintInfoDialog(msg, data);
       }
     } catch (e) {
       if (mounted) appToast(context, errorText(e), error: true);
@@ -151,7 +173,6 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
   }
 
   void _showPrintInfoDialog(
-    BuildContext context,
     String message,
     Map<String, dynamic>? data,
   ) {
@@ -168,7 +189,7 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
             Container(
@@ -200,7 +221,7 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
               message,
               style: const TextStyle(fontSize: 13.5, height: 1.45),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -263,7 +284,7 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
               backgroundColor: AppColors.upiYellowDeep,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
             child: const Text('Mengerti'),
@@ -273,200 +294,572 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
     );
   }
 
+  void _onSelectPeriode(String? newPeriode) {
+    if (newPeriode == null || newPeriode == _selectedPeriode) return;
+    setState(() {
+      _selectedPeriode = newPeriode;
+    });
+    context.read<PeriodeProvider>().set(newPeriode);
+    _reload();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AsyncPage<Map<String, dynamic>>(
-      key: _pageKey,
-      title: 'Kartu Ujian',
-      subtitle: 'Kartu rencana dan syarat ujian mahasiswa',
-      load: _load,
-      headerActions: [
-        HeaderActionButton(
-          icon: Icons.refresh_rounded,
-          tooltip: 'Muat Ulang',
-          onPressed: () => _pageKey.currentState?.reload(),
-        ),
-      ],
-      headerExtras: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final auth = context.watch<AuthProvider>();
+    final isDark = context.isDark;
+    final bg = isDark ? const Color(0xFF000000) : const Color(0xFFF9FAFB);
+
+    final preview = asMap(_cachedData?['preview']);
+    final statusPrintLabel =
+        pickString(preview, ['status_print_label'], 'Pencetakan Ditutup');
+
+    return Scaffold(
+      backgroundColor: bg,
+      body: Column(
         children: [
-          // Segmented Tabs: UTS, UAS, SISKOM
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(
-                  value: 'uts',
-                  label: Text('UTS'),
-                  icon: Icon(Icons.edit_note_rounded, size: 16),
-                ),
-                ButtonSegment(
-                  value: 'uas',
-                  label: Text('UAS'),
-                  icon: Icon(Icons.fact_check_rounded, size: 16),
-                ),
-                ButtonSegment(
-                  value: 'siskom',
-                  label: Text('SISKOM'),
-                  icon: Icon(Icons.tune_rounded, size: 16),
-                ),
-              ],
-              selected: {_jenis},
-              showSelectedIcon: false,
-              style: SegmentedButton.styleFrom(
-                selectedBackgroundColor: AppColors.amber,
-                selectedForegroundColor: AppColors.indigo950,
-                foregroundColor: Colors.white,
-                backgroundColor: Colors.white.withValues(alpha: 0.12),
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.25)),
-                textStyle:
-                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
-                padding:
-                    const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+          // ──── HEADER KUNING DENGAN LEKUKAN BERSAMBUNG & FLOATING SEGMENTED PILL ────
+          Stack(
+            alignment: Alignment.bottomCenter,
+            clipBehavior: Clip.none,
+            children: [
+              _buildCurvedYellowHeader(
+                nama: auth.nama,
+                nim: auth.nim,
+                statusPrintLabel: statusPrintLabel,
               ),
-              onSelectionChanged: (s) {
-                setState(() => _jenis = s.first);
-                _pageKey.currentState?.reload();
+              Positioned(
+                bottom: -18,
+                left: 0,
+                right: 0,
+                child: _buildFloatingSegmentedPill(context, isDark),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+
+          // ──── BODY KONTEN ────
+          Expanded(
+            child: FutureBuilder<Map<String, dynamic>>(
+              future: _future,
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting &&
+                    _cachedData == null) {
+                  return const Center(
+                    child: LoadingView(label: 'Memuat jadwal kartu ujian...'),
+                  );
+                }
+                if (snap.hasError && _cachedData == null) {
+                  return ErrorRetry(
+                    message: errorText(snap.error!),
+                    onRetry: _reload,
+                  );
+                }
+                if (snap.hasData) {
+                  _cachedData = snap.data;
+                }
+                if (_cachedData == null) {
+                  return const EmptyView(message: 'Data kartu ujian tidak ditemukan');
+                }
+                return RefreshIndicator(
+                  color: AppColors.upiYellowDeep,
+                  backgroundColor:
+                      isDark ? const Color(0xFF1E1E22) : Colors.white,
+                  onRefresh: () async {
+                    _reload();
+                    await _future;
+                  },
+                  child: _buildBody(context, _cachedData!),
+                );
               },
             ),
           ),
-          const SizedBox(height: 10),
-          // Periode Selector Pill
-          PillDropdown(
-            value: _periodeOpts.any((o) => o.value == _selectedPeriode)
-                ? _selectedPeriode
-                : (_periodeOpts.isNotEmpty ? _periodeOpts.first.value : null),
-            items: _periodeOpts.isNotEmpty
-                ? _periodeOpts
-                    .map((o) => DropdownMenuItem(
-                          value: o.value,
-                          child: Text(o.label,
-                              maxLines: 1, overflow: TextOverflow.ellipsis),
-                        ))
-                    .toList()
-                : [
-                    DropdownMenuItem(
-                      value: _selectedPeriode ?? fallbackPeriode(),
-                      child: Text(
-                          'Periode ${_selectedPeriode ?? fallbackPeriode()}'),
-                    )
-                  ],
-            onChanged: (v) {
-              if (v != null && v != _selectedPeriode) {
-                setState(() => _selectedPeriode = v);
-                _pageKey.currentState?.reload();
-              }
-            },
-          ),
         ],
       ),
-      builder: (context, data) {
-        // Ekstrak daftar mata kuliah ujian
-        final rawList = <Map<String, dynamic>>[];
-        if (data['mata_kuliah'] is List) {
-          for (final item in (data['mata_kuliah'] as List)) {
-            if (item is Map) rawList.add(asMap(item));
-          }
-        }
-
-        // Hitung metrik eligible
-        final eligibleCount = rawList.where((it) {
-          final sk = pickString(it, ['status_kind'], '');
-          final st = pickString(it, ['status'], '').toLowerCase();
-          return sk == 'eligible' || st.contains('dapat');
-        }).length;
-        final ineligibleCount = rawList.length - eligibleCount;
-
-        // Filter pencarian dan status
-        final q = _searchQuery.toLowerCase().trim();
-        final filteredList = rawList.where((it) {
-          // Status filter
-          if (_filterStatus == 'eligible') {
-            final sk = pickString(it, ['status_kind'], '');
-            final st = pickString(it, ['status'], '').toLowerCase();
-            if (!(sk == 'eligible' || st.contains('dapat'))) return false;
-          } else if (_filterStatus == 'ineligible') {
-            final sk = pickString(it, ['status_kind'], '');
-            final st = pickString(it, ['status'], '').toLowerCase();
-            if (sk == 'eligible' || st.contains('dapat')) return false;
-          }
-
-          // Search query
-          if (q.isEmpty) return true;
-          final nama = pickString(it, ['nama', 'nama_mk']).toLowerCase();
-          final kode = pickString(it, ['kode', 'kode_mk']).toLowerCase();
-          final kelas = pickString(it, ['kelas']).toLowerCase();
-          final dosen = pickString(it, ['dosen']).toLowerCase();
-          return nama.contains(q) ||
-              kode.contains(q) ||
-              kelas.contains(q) ||
-              dosen.contains(q);
-        }).toList();
-
-        return RefreshIndicator(
-          onRefresh: () async => _pageKey.currentState?.reload(),
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              // Hero Card: Mahasiswa, Preview, Status Cetak
-              _buildHeroCard(context, data),
-              const SizedBox(height: 14),
-
-              // Metrik Ringkas
-              _buildMetricsGrid(context, data),
-              const SizedBox(height: 16),
-
-              // Search Bar & Filter Chips
-              _buildSearchAndFilters(
-                context,
-                totalCount: rawList.length,
-                eligibleCount: eligibleCount,
-                ineligibleCount: ineligibleCount,
-              ),
-              const SizedBox(height: 14),
-
-              // Daftar Mata Kuliah
-              if (filteredList.isEmpty)
-                SurfaceCard(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.search_off_rounded,
-                        size: 48,
-                        color: context.textMuted.withValues(alpha: 0.5),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        rawList.isEmpty
-                            ? 'Belum ada jadwal kartu ujian ${_jenis.toUpperCase()} pada periode ini.'
-                            : 'Tidak ada mata kuliah yang cocok dengan kata kunci pencarian.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: context.textMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                for (final item in filteredList) ...[
-                  _UjianCard(item: item),
-                  const SizedBox(height: 10),
-                ],
-
-              const SizedBox(height: 30),
-            ],
-          ),
-        );
-      },
     );
   }
 
+  // ────────────────────────────────────────────────── HEADER KUNING DENGAN LEKUKAN BERSAMBUNG
+  Widget _buildCurvedYellowHeader({
+    required String nama,
+    required String nim,
+    required String statusPrintLabel,
+  }) {
+    final canPop = Navigator.of(context).canPop();
+
+    return ClipPath(
+      clipper: const SeamlessWaveClipper(),
+      child: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: _yellowHeaderGradient,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 12, 22, kCurvedHeaderBottomPadding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top Row: Back + Title + Action buttons (Cetak & Refresh)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (canPop) ...[
+                          IconButton(
+                            onPressed: () {
+                              Navigator.of(context).maybePop();
+                            },
+                            icon: const Icon(Icons.arrow_back_rounded,
+                                color: Colors.white, size: 24),
+                            tooltip: 'Kembali',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        const Text(
+                          'Kartu Ujian',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 21,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          onPressed: () => _handleCetak(_cachedData),
+                          icon: _isPrinting
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.print_rounded,
+                                  color: Colors.white, size: 22),
+                          tooltip: 'Cetak Kartu Ujian',
+                          splashRadius: 20,
+                          padding: const EdgeInsets.all(6),
+                          constraints: const BoxConstraints(),
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          onPressed: () {
+                            HapticFeedback.selectionClick();
+                            _reload();
+                          },
+                          icon: const Icon(Icons.refresh_rounded,
+                              color: Colors.white, size: 22),
+                          tooltip: 'Muat Ulang',
+                          splashRadius: 20,
+                          padding: const EdgeInsets.all(6),
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // Student Identity Row
+                Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.22),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.85),
+                          width: 1.8,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Text(
+                          initialsOf(nama),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            nama.isNotEmpty ? nama : 'Mahasiswa UPI YPTK',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16.5,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                nim.isNotEmpty ? 'NIM $nim' : '-',
+                                style: const TextStyle(
+                                  color: Color(0xE6FFFFFF),
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w500,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.22),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  _jenis.toUpperCase(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.4,
+                                  ),
+                                ),
+                              ),
+                              if (statusPrintLabel.isNotEmpty)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.25),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    statusPrintLabel,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.2,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ────────────────────────────────────────────────── FLOATING SEGMENTED PILL (UTS / UAS / SISKOM)
+  Widget _buildFloatingSegmentedPill(BuildContext context, bool isDark) {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20),
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E1E22) : Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: isDark
+                  ? Colors.black.withValues(alpha: 0.40)
+                  : Colors.black.withValues(alpha: 0.08),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _segmentButton('UTS', 'uts', Icons.edit_note_rounded, isDark),
+            _segmentButton('UAS', 'uas', Icons.fact_check_rounded, isDark),
+            _segmentButton('SISKOM', 'siskom', Icons.tune_rounded, isDark),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _segmentButton(String label, String value, IconData icon, bool isDark) {
+    final isSelected = _jenis == value;
+
+    return IosBounceTap(
+      onTap: () {
+        if (_jenis == value) return;
+        HapticFeedback.selectionClick();
+        setState(() {
+          _jenis = value;
+          _cachedData = null; // refresh clean
+        });
+        _reload();
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.upiYellowDeep
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppColors.upiYellowDeep.withValues(alpha: 0.35),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 15,
+              color: isSelected
+                  ? Colors.white
+                  : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                color: isSelected
+                    ? Colors.white
+                    : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                letterSpacing: 0.2,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ────────────────────────────────────────────────── NEUMORPHIC CARD HELPER
+  Widget _buildNeuCard({
+    required BuildContext context,
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
+    VoidCallback? onTap,
+  }) {
+    final isDark = context.isDark;
+    final content = Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF1F5F9),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.35)
+                : const Color(0xFF94A3B8).withValues(alpha: 0.12),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+          if (!isDark)
+            BoxShadow(
+              color: Colors.white.withValues(alpha: 0.9),
+              blurRadius: 10,
+              offset: const Offset(-2, -2),
+            ),
+        ],
+      ),
+      child: child,
+    );
+
+    if (onTap != null) {
+      return IosBounceTap(onTap: onTap, child: content);
+    }
+    return content;
+  }
+
+  // ────────────────────────────────────────────────── BODY
+  Widget _buildBody(BuildContext context, Map<String, dynamic> data) {
+    final rawList = <Map<String, dynamic>>[];
+    if (data['mata_kuliah'] is List) {
+      for (final item in (data['mata_kuliah'] as List)) {
+        if (item is Map) rawList.add(asMap(item));
+      }
+    }
+
+    // Hitung metrik eligible
+    final eligibleCount = rawList.where((it) {
+      final sk = pickString(it, ['status_kind'], '');
+      final st = pickString(it, ['status'], '').toLowerCase();
+      return sk == 'eligible' || st.contains('dapat');
+    }).length;
+    final ineligibleCount = rawList.length - eligibleCount;
+
+    // Filter pencarian dan status
+    final q = _searchQuery.toLowerCase().trim();
+    final filteredList = rawList.where((it) {
+      // Status filter
+      if (_filterStatus == 'eligible') {
+        final sk = pickString(it, ['status_kind'], '');
+        final st = pickString(it, ['status'], '').toLowerCase();
+        if (!(sk == 'eligible' || st.contains('dapat'))) return false;
+      } else if (_filterStatus == 'ineligible') {
+        final sk = pickString(it, ['status_kind'], '');
+        final st = pickString(it, ['status'], '').toLowerCase();
+        if (sk == 'eligible' || st.contains('dapat')) return false;
+      }
+
+      // Search query
+      if (q.isEmpty) return true;
+      final nama = pickString(it, ['nama', 'nama_mk']).toLowerCase();
+      final kode = pickString(it, ['kode', 'kode_mk']).toLowerCase();
+      final kelas = pickString(it, ['kelas']).toLowerCase();
+      final dosen = pickString(it, ['dosen']).toLowerCase();
+      return nama.contains(q) ||
+          kode.contains(q) ||
+          kelas.contains(q) ||
+          dosen.contains(q);
+    }).toList();
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 104),
+      children: [
+        // Opsi Periode jika tersedia
+        if (_periodeOpts.isNotEmpty) ...[
+          _buildPeriodePill(context),
+          const SizedBox(height: 12),
+        ],
+
+        // Hero Card: Mahasiswa, Jadwal Ujian, Status Cetak
+        _buildHeroCard(context, data),
+        const SizedBox(height: 14),
+
+        // Metrik Ringkas
+        _buildMetricsGrid(context, data, rawList.length, eligibleCount, ineligibleCount),
+        const SizedBox(height: 16),
+
+        // Search Bar & Filter Chips
+        _buildSearchAndFilters(
+          context,
+          totalCount: rawList.length,
+          eligibleCount: eligibleCount,
+          ineligibleCount: ineligibleCount,
+        ),
+        const SizedBox(height: 14),
+
+        // Daftar Mata Kuliah
+        if (filteredList.isEmpty)
+          _buildNeuCard(
+            context: context,
+            padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.search_off_rounded,
+                  size: 48,
+                  color: context.textMuted.withValues(alpha: 0.5),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  rawList.isEmpty
+                      ? 'Belum ada jadwal kartu ujian ${_jenis.toUpperCase()} pada periode ini.'
+                      : 'Tidak ada mata kuliah yang cocok dengan kata kunci pencarian.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: context.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          for (final item in filteredList) ...[
+            _UjianCard(
+              item: item,
+              neuBuilder: _buildNeuCard,
+            ),
+            const SizedBox(height: 12),
+          ],
+
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  // ────────────────────────────────────────────────── PERIODE PILL
+  Widget _buildPeriodePill(BuildContext context) {
+    final activeValue = _periodeOpts.any((o) => o.value == _selectedPeriode)
+        ? _selectedPeriode
+        : (_periodeOpts.isNotEmpty ? _periodeOpts.first.value : _selectedPeriode);
+
+    return _buildNeuCard(
+      context: context,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      child: PillDropdown(
+        value: activeValue,
+        hint: 'Pilih Periode',
+        items: [
+          for (final o in _periodeOpts)
+            DropdownMenuItem<String>(
+              value: o.value,
+              child: Text(
+                o.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+        ],
+        onChanged: _onSelectPeriode,
+      ),
+    );
+  }
+
+  // ────────────────────────────────────────────────── HERO CARD
   Widget _buildHeroCard(BuildContext context, Map<String, dynamic> data) {
     final mhs = asMap(data['mahasiswa']);
     final nama = pickString(mhs, ['nama'], 'Mahasiswa');
@@ -505,20 +898,9 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
     final isOpen = statusPrint.toLowerCase() == 'open';
     final Color statusBadgeColor = isOpen ? AppColors.green : AppColors.amber;
 
-    return Container(
+    return _buildNeuCard(
+      context: context,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: context.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: context.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -535,6 +917,13 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.upiYellowDeep.withValues(alpha: 0.25),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
                 alignment: Alignment.center,
                 child: Text(
@@ -599,7 +988,7 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
           ),
 
           const SizedBox(height: 14),
-          const Divider(height: 1),
+          Divider(height: 1, color: context.border),
           const SizedBox(height: 12),
 
           // Jadwal & Status Pelaksanaan Ujian
@@ -613,13 +1002,14 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
                     Text(
                       jenisUjian,
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 14,
                         fontWeight: FontWeight.w800,
                         color: context.textPrimary,
+                        height: 1.25,
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    if (periode.isNotEmpty || periodeTahun.isNotEmpty)
+                    if (periode.isNotEmpty || periodeTahun.isNotEmpty) ...[
+                      const SizedBox(height: 3),
                       Text(
                         [periode, periodeTahun]
                             .where((s) => s.isNotEmpty)
@@ -628,29 +1018,6 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
                           fontSize: 11.5,
                           color: context.textMuted,
                         ),
-                      ),
-                    if (rentangMulai.isNotEmpty ||
-                        rentangSelesai.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.date_range_rounded,
-                            size: 13,
-                            color: AppColors.upiYellowDeep,
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              '$rentangMulai ${rentangSelesai.isNotEmpty ? "s.d. $rentangSelesai" : ""}',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w600,
-                                color: context.textMuted,
-                              ),
-                            ),
-                          ),
-                        ],
                       ),
                     ],
                   ],
@@ -669,6 +1036,7 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Row(
                       mainAxisSize: MainAxisSize.min,
@@ -677,7 +1045,7 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
                           isOpen
                               ? Icons.check_circle_rounded
                               : Icons.lock_clock_rounded,
-                          size: 12.5,
+                          size: 13,
                           color: statusBadgeColor,
                         ),
                         const SizedBox(width: 4),
@@ -699,7 +1067,7 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
                         style: TextStyle(
                           fontSize: 9.5,
                           fontWeight: FontWeight.w600,
-                          color: statusBadgeColor.withValues(alpha: 0.8),
+                          color: statusBadgeColor.withValues(alpha: 0.85),
                         ),
                       ),
                     ],
@@ -709,33 +1077,98 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
             ],
           ),
 
+          // Tanggal Pelaksanaan Ujian
+          if (rentangMulai.isNotEmpty || rentangSelesai.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6.5),
+              decoration: BoxDecoration(
+                color: context.softFill,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: context.border),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.calendar_month_rounded,
+                    size: 14,
+                    color: AppColors.upiYellowDeep,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Jadwal Ujian: $rentangMulai ${rentangSelesai.isNotEmpty ? "s.d. $rentangSelesai" : ""}',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: context.textPrimary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
           const SizedBox(height: 14),
 
           // Action Button Cetak
           SizedBox(
             width: double.infinity,
             child: isPrintEnabled
-                ? FilledButton.icon(
-                    onPressed: _isPrinting ? null : () => _handleCetak(data),
-                    icon: _isPrinting
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Icon(Icons.print_rounded, size: 18),
-                    label: Text(
-                      _isPrinting ? 'Memproses Cetak...' : printLabel,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 13),
-                    ),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.upiYellowDeep,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 11),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                ? IosBounceTap(
+                    onTap: _isPrinting ? null : () => _handleCetak(data),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFE5A620), Color(0xFFB87500)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.upiYellowDeep.withValues(alpha: 0.35),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (_isPrinting) ...[
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            ),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Memproses Cetak...',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ] else ...[
+                            const Icon(Icons.print_rounded,
+                                color: Colors.white, size: 18),
+                            const SizedBox(width: 8),
+                            Text(
+                              printLabel,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   )
                 : OutlinedButton(
@@ -776,67 +1209,85 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
     );
   }
 
-  Widget _buildMetricsGrid(BuildContext context, Map<String, dynamic> data) {
+  // ────────────────────────────────────────────────── METRICS GRID
+  Widget _buildMetricsGrid(
+    BuildContext context,
+    Map<String, dynamic> data,
+    int calculatedTotalMk,
+    int calculatedEligible,
+    int calculatedIneligible,
+  ) {
     final metrics = asMap(data['metrics']);
     final totalSks = pickString(metrics, ['total_sks'], '-');
     final totalSksDesc = pickString(metrics, ['total_sks_desc'], 'Total SKS');
-    final totalMk = pickString(metrics, ['mata_kuliah'], '-');
+    final totalMk = pickString(metrics, ['mata_kuliah'], calculatedTotalMk.toString());
     final totalMkDesc =
         pickString(metrics, ['mata_kuliah_desc'], 'Mata Kuliah');
-    final dapat = pickString(metrics, ['dapat_mengikuti'], '-');
+    final dapat = pickString(metrics, ['dapat_mengikuti'], calculatedEligible.toString());
     final dapatDesc =
         pickString(metrics, ['dapat_mengikuti_desc'], 'Dapat Mengikuti');
-    final tidak = pickString(metrics, ['tidak_mengikuti'], '');
+    final tidak = pickString(metrics, ['tidak_mengikuti'], calculatedIneligible.toString());
     final tidakDesc =
-        pickString(metrics, ['tidak_mengikuti_desc'], 'Tidak Mengikuti');
+        pickString(metrics, ['tidak_mengikuti_desc'], 'Terkendala');
 
-    return Row(
+    final hasTerkendala = calculatedIneligible > 0 ||
+        (tidak.isNotEmpty && tidak != 'null' && tidak != '0');
+
+    return Column(
       children: [
-        Expanded(
-          child: _statItem(
-            context,
-            label: 'Total SKS',
-            value: totalSks,
-            sublabel: totalSksDesc,
-            icon: Icons.credit_card_rounded,
-            color: AppColors.amber,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _statItem(
-            context,
-            label: 'Mata Kuliah',
-            value: totalMk,
-            sublabel: totalMkDesc,
-            icon: Icons.menu_book_rounded,
-            color: AppColors.blue,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _statItem(
-            context,
-            label: 'Dapat Ujian',
-            value: dapat,
-            sublabel: dapatDesc,
-            icon: Icons.verified_rounded,
-            color: AppColors.green,
-          ),
-        ),
-        if (tidak.isNotEmpty && tidak != 'null') ...[
-          const SizedBox(width: 8),
-          Expanded(
-            child: _statItem(
-              context,
-              label: 'Terkendala',
-              value: tidak,
-              sublabel: tidakDesc,
-              icon: Icons.warning_rounded,
-              color: AppColors.red,
+        Row(
+          children: [
+            Expanded(
+              child: _statItem(
+                context,
+                label: 'Total SKS',
+                value: totalSks,
+                sublabel: totalSksDesc,
+                icon: Icons.credit_card_rounded,
+                color: AppColors.amber,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            Expanded(
+              child: _statItem(
+                context,
+                label: 'Mata Kuliah',
+                value: totalMk,
+                sublabel: totalMkDesc,
+                icon: Icons.menu_book_rounded,
+                color: AppColors.blue,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _statItem(
+                context,
+                label: 'Dapat Ujian',
+                value: dapat,
+                sublabel: dapatDesc,
+                icon: Icons.verified_rounded,
+                color: AppColors.green,
+              ),
+            ),
+            if (hasTerkendala) ...[
+              const SizedBox(width: 8),
+              Expanded(
+                child: _statItem(
+                  context,
+                  label: 'Terkendala',
+                  value: tidak,
+                  sublabel: tidakDesc,
+                  icon: Icons.warning_rounded,
+                  color: AppColors.red,
+                ),
+              ),
+            ],
+          ],
+        ),
       ],
     );
   }
@@ -849,25 +1300,28 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
     required IconData icon,
     required Color color,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      decoration: BoxDecoration(
-        color: context.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: context.border),
-      ),
+    return _buildNeuCard(
+      context: context,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 13, color: color),
-              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(icon, size: 14, color: color),
+              ),
+              const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   label,
                   style: TextStyle(
-                    fontSize: 10.5,
+                    fontSize: 11,
                     fontWeight: FontWeight.w600,
                     color: context.textMuted,
                   ),
@@ -877,12 +1331,12 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 6),
           Text(
             value,
             style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
               color: context.textPrimary,
             ),
             maxLines: 1,
@@ -905,6 +1359,7 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
     );
   }
 
+  // ────────────────────────────────────────────────── SEARCH & FILTERS
   Widget _buildSearchAndFilters(
     BuildContext context, {
     required int totalCount,
@@ -915,12 +1370,9 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Search Input Field
-        Container(
-          decoration: BoxDecoration(
-            color: context.card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: context.border),
-          ),
+        _buildNeuCard(
+          context: context,
+          padding: EdgeInsets.zero,
           child: TextField(
             controller: _searchCtrl,
             onChanged: (val) => setState(() => _searchQuery = val),
@@ -941,7 +1393,7 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
                   : null,
               isDense: true,
               contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               border: InputBorder.none,
             ),
           ),
@@ -989,29 +1441,36 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
     required VoidCallback onSelected,
     Color activeColor = AppColors.upiYellowDeep,
   }) {
-    return InkWell(
+    return IosBounceTap(
       onTap: onSelected,
-      borderRadius: BorderRadius.circular(20),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
           color: selected
               ? activeColor.withValues(alpha: 0.14)
-              : context.softFill,
+              : (context.isDark ? const Color(0xFF1C1C1E) : Colors.white),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: selected
-                ? activeColor.withValues(alpha: 0.5)
+                ? activeColor.withValues(alpha: 0.6)
                 : context.border,
             width: selected ? 1.4 : 1,
           ),
+          boxShadow: [
+            if (!selected)
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+          ],
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 11.5,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
             color: selected ? activeColor : context.textPrimary,
           ),
         ),
@@ -1020,9 +1479,20 @@ class _KartuUjianScreenState extends State<KartuUjianScreen> {
   }
 }
 
+// ────────────────────────────────────────────────── KARTU MATA KULIAH UJIAN (NEUMORPHIC)
 class _UjianCard extends StatelessWidget {
-  const _UjianCard({required this.item});
+  const _UjianCard({
+    required this.item,
+    required this.neuBuilder,
+  });
+
   final Map<String, dynamic> item;
+  final Widget Function({
+    required BuildContext context,
+    required Widget child,
+    EdgeInsetsGeometry padding,
+    VoidCallback? onTap,
+  }) neuBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -1051,27 +1521,26 @@ class _UjianCard extends StatelessWidget {
         status.toLowerCase().contains('memenuhi');
     final Color badgeColor = isEligible ? AppColors.green : AppColors.amber;
 
-    return SurfaceCard(
+    return neuBuilder(
+      context: context,
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header: No badge, Title, Status badge
+          // Baris Header Atas: Nomor & Kode MK di kiri, Status Badge di kanan
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (no.isNotEmpty) ...[
                 Container(
-                  width: 26,
-                  height: 26,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                   decoration: BoxDecoration(
                     color: context.softFill,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(6),
                     border: Border.all(color: context.border),
                   ),
-                  alignment: Alignment.center,
                   child: Text(
-                    no,
+                    'No. $no',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
@@ -1079,97 +1548,89 @@ class _UjianCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
               ],
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      nama,
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w800,
-                        color: context.textPrimary,
-                        height: 1.25,
-                      ),
+              if (kode.isNotEmpty)
+                Expanded(
+                  child: Text(
+                    kode,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.upiYellowDeep,
                     ),
-                    const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: [
-                        if (kode.isNotEmpty)
-                          Text(
-                            kode,
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.upiYellowDeep,
-                            ),
-                          ),
-                        if (sks.isNotEmpty)
-                          Text(
-                            '• $sks SKS',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                              color: context.textMuted,
-                            ),
-                          ),
-                        if (kelas.isNotEmpty)
-                          Text(
-                            '• Kelas $kelas',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                              color: context.textMuted,
-                            ),
-                          ),
-                        if (reguler.isNotEmpty)
-                          Text(
-                            '• $reguler',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              color: context.textMuted,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+                  ),
+                )
+              else
+                const Spacer(),
               const SizedBox(width: 8),
               // Status Badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: badgeColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: badgeColor.withValues(alpha: 0.25)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      isEligible
-                          ? Icons.check_circle_rounded
-                          : Icons.warning_amber_rounded,
-                      size: 12,
-                      color: badgeColor,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      status,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
+              Flexible(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                  decoration: BoxDecoration(
+                    color: badgeColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border:
+                        Border.all(color: badgeColor.withValues(alpha: 0.25)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isEligible
+                            ? Icons.check_circle_rounded
+                            : Icons.warning_amber_rounded,
+                        size: 12,
                         color: badgeColor,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          status,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: badgeColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // Judul Mata Kuliah
+          Text(
+            nama,
+            style: TextStyle(
+              fontSize: 14.5,
+              fontWeight: FontWeight.w800,
+              color: context.textPrimary,
+              height: 1.3,
+            ),
+          ),
+          const SizedBox(height: 6),
+
+          // Detail SKS, Kelas, Reguler
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              if (sks.isNotEmpty)
+                _metaPill(context, '$sks SKS'),
+              if (kelas.isNotEmpty)
+                _metaPill(context, 'Kelas $kelas'),
+              if (reguler.isNotEmpty)
+                _metaPill(context, reguler),
             ],
           ),
 
@@ -1196,7 +1657,7 @@ class _UjianCard extends StatelessWidget {
           ],
 
           const SizedBox(height: 10),
-          const Divider(height: 1),
+          Divider(height: 1, color: context.border),
           const SizedBox(height: 8),
 
           // Dosen Pengampu Row
@@ -1219,6 +1680,25 @@ class _UjianCard extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _metaPill(BuildContext context, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+      decoration: BoxDecoration(
+        color: context.softFill,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: context.border),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: context.textMuted,
+        ),
       ),
     );
   }

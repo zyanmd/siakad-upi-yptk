@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -24,6 +23,9 @@ class _SplashScreenState extends State<SplashScreen> {
     final auth = context.read<AuthProvider>();
     await Future.delayed(const Duration(milliseconds: 700));
     await auth.bootstrap();
+    if (auth.isAuthed) {
+      await auth.validateSession();
+    }
     if (!mounted) return;
     Navigator.of(context)
         .pushReplacementNamed(auth.isAuthed ? '/home' : '/login');
@@ -58,7 +60,7 @@ class _SplashScreenState extends State<SplashScreen> {
               child: const Icon(
                 Icons.school_rounded,
                 size: 46,
-                color: Color(0xFF1C1917),
+                color: Colors.white,
               ),
             ),
             const SizedBox(height: 24),
@@ -85,13 +87,13 @@ class _SplashScreenState extends State<SplashScreen> {
                       width: 0.8,
                     ),
                   ),
-                  child: const Text(
+                  child: Text(
                     'UNOFFICIAL',
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.5,
-                      color: Color(0xFFD4A30A),
+                      color: context.primaryContrast,
                     ),
                   ),
                 ),
@@ -99,15 +101,32 @@ class _SplashScreenState extends State<SplashScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Sistem Informasi Akademik Mahasiswa',
+              'Universitas Putra Indonesia YPTK Padang',
+              style: TextStyle(
+                color: context.textPrimary,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.2,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Portal Layanan Akademik & Kemahasiswaan',
               style: TextStyle(
                 color: context.textMuted,
-                fontSize: 13,
+                fontSize: 12,
                 letterSpacing: -0.2,
               ),
             ),
             const SizedBox(height: 38),
-            const CupertinoActivityIndicator(radius: 12),
+            const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryYellow),
+              ),
+            ),
           ],
         ),
       ),

@@ -69,3 +69,8 @@ app.*.map.json
 !**/ios/**/default.mode2v3
 !**/ios/**/default.pbxuser
 !**/ios/**/default.perspectivev3
+# Widget Preview related
+.widget_preview/
+
+**/android/build/
+android/build/

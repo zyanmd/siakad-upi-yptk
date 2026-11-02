@@ -1,7 +1,136 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+
+import 'common.dart';
+
+// ═══════════════════════════════════════════════════════════════════
+//  WAVE CLIPPER UNTUK HEADER LENGKUNG
+// ═══════════════════════════════════════════════════════════════════
+
+class CurvedHeaderClipper extends CustomClipper<Path> {
+  const CurvedHeaderClipper({this.waveHeight = 28, this.waveDip = 14});
+  final double waveHeight;
+  final double waveDip;
+
+  @override
+  Path getClip(Size size) =>
+      SeamlessWaveClipper(waveHeight: waveHeight, waveDip: waveDip).getClip(size);
+
+  @override
+  bool shouldReclip(covariant CurvedHeaderClipper oldClipper) =>
+      oldClipper.waveHeight != waveHeight || oldClipper.waveDip != waveDip;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  CURVED GRADIENT HEADER - Header Lengkung dengan Gradien Kuning UPI
+// ═══════════════════════════════════════════════════════════════════
+
+class CurvedGradientHeader extends StatelessWidget {
+  const CurvedGradientHeader({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.showBackButton = true,
+    this.actions,
+    this.height = 180,
+  });
+
+  final String title;
+  final String? subtitle;
+  final bool showBackButton;
+  final List<Widget>? actions;
+  final double height;
+
+  static const List<Color> _gradientColors = [
+    Color(0xFFE5A620), // Bright Academic Gold
+    Color(0xFFD48B08), // UPI Yellow
+    Color(0xFFB87500), // Deep Academic Gold
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipPath(
+      clipper: const SeamlessWaveClipper(),
+      child: Container(
+        height: height,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: _gradientColors,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 12, 22, kCurvedHeaderBottomPadding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Navigation Bar
+                Row(
+                  children: [
+                    if (showBackButton)
+                      IconButton(
+                        onPressed: () {
+                          Navigator.of(context).maybePop();
+                        },
+                        icon: const Icon(
+                          Icons.arrow_back_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                        tooltip: 'Kembali',
+                      ),
+                    const Spacer(),
+                    if (actions != null) ...actions!,
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // Title & Subtitle
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 32,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -1,
+                          height: 1.1,
+                        ),
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          subtitle!,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.90),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  ORIGINAL FLAT HEADER (untuk halaman yang tidak perlu lengkung)
+// ═══════════════════════════════════════════════════════════════════
 
 /// Header navigasi bergaya iOS modern dengan border hairline dan tipografi bersih.
 class GradientHeader extends StatelessWidget {
@@ -67,21 +196,22 @@ class GradientHeader extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: context.textPrimary,
-                            fontSize: 17.5,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.4,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.6,
                           ),
                         ),
                         if (subtitle != null) ...[
-                          const SizedBox(height: 1.5),
+                          const SizedBox(height: 2),
                           Text(
                             subtitle!,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: context.textMuted,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: -0.2,
                             ),
                           ),
                         ],
@@ -104,26 +234,27 @@ class GradientHeader extends StatelessWidget {
   }
 }
 
-/// Tombol kembali bergaya chevron iOS.
+/// Tombol kembali header yang rapi dan konsisten.
 class HeaderBackButton extends StatelessWidget {
   const HeaderBackButton({super.key});
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      onPressed: () => Navigator.of(context).maybePop(),
+      onPressed: () {
+        Navigator.of(context).maybePop();
+      },
       icon: Icon(
-        CupertinoIcons.chevron_back,
+        Icons.arrow_back_rounded,
         color: context.textPrimary,
-        size: 24,
+        size: 22,
       ),
       tooltip: 'Kembali',
-      splashRadius: 20,
     );
   }
 }
 
-/// Tombol aksi ikon di header ala iOS.
+/// Tombol aksi ikon di header.
 class HeaderActionButton extends StatelessWidget {
   const HeaderActionButton({
     super.key,
@@ -142,7 +273,29 @@ class HeaderActionButton extends StatelessWidget {
       onPressed: onPressed,
       icon: Icon(icon, color: context.textPrimary, size: 21),
       tooltip: tooltip,
-      splashRadius: 20,
+    );
+  }
+}
+
+/// Header Action Button untuk Curved Header (warna putih)
+class CurvedHeaderActionButton extends StatelessWidget {
+  const CurvedHeaderActionButton({
+    super.key,
+    required this.icon,
+    this.onPressed,
+    this.tooltip,
+  });
+
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: onPressed,
+      icon: Icon(icon, color: Colors.white, size: 24),
+      tooltip: tooltip,
     );
   }
 }

@@ -9,6 +9,7 @@ import '../services/api_client.dart';
 import '../theme/app_theme.dart';
 import '../utils/smart.dart';
 import '../widgets/common.dart';
+import '../widgets/gradient_header.dart';
 
 /// Halaman tampilan resmi lembar cetak Kartu Hasil Studi (KHS)
 /// yang menampilkan dokumen cetak resmi secara langsung di dalam aplikasi
@@ -214,6 +215,7 @@ class _KhsCetakScreenState extends State<KhsCetakScreen> {
       await Printing.layoutPdf(
         onLayout: (PdfPageFormat format) async {
           // Buat halaman PDF dari HTML
+          // ignore: deprecated_member_use
           return await Printing.convertHtml(
             format: format,
             html: htmlContent,
@@ -498,109 +500,104 @@ class _KhsCetakScreenState extends State<KhsCetakScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.bg,
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Lembar Cetak KHS',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              'Periode ${widget.periode}',
-              style: TextStyle(fontSize: 11.5, color: context.textMuted),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.copy_rounded, size: 20),
-            tooltip: 'Salin Ringkasan KHS',
-            onPressed: () async {
-              final data = await _future;
-              if (mounted) _salinRincian(data);
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.open_in_browser_rounded, size: 20),
-            tooltip: 'Buka di Browser',
-            onPressed: () async {
-              final data = await _future;
-              final url = pickString(data, ['url', 'print_url'], '');
-              if (url.isNotEmpty) {
-                if (context.mounted) await openExternal(context, url);
-              } else {
-                if (context.mounted) {
-                  appToast(context, 'Tautan eksternal tidak tersedia.');
-                }
-              }
-            },
-          ),
-          const SizedBox(width: 4),
-        ],
-      ),
-      body: FutureBuilder<Map<String, dynamic>>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: LoadingView(label: 'Memuat lembar cetak KHS...'));
-          }
-          if (snapshot.hasError) {
-            return ErrorRetry(
-              message: 'Gagal memuat dokumen: ${snapshot.error}',
-              onRetry: () => setState(() => _future = _loadData()),
-            );
-          }
-
-          final data = snapshot.data ?? {};
-          final rows = _extractRows(data);
-          final htmlContent = _buildPrintableHtml(data, rows);
-
-          return Column(
-            children: [
-              // Banner Tombol Aksi Cetak Utama
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: context.card,
-                  border: Border(bottom: BorderSide(color: context.border)),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Pratinjau Resmi KHS Universitas',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: context.textMuted,
-                        ),
-                      ),
-                    ),
-                    FilledButton.icon(
-                      onPressed: _isPrinting ? null : () => _cetakPdf(htmlContent),
-                      icon: _isPrinting
-                          ? const SizedBox(
-                              width: 15,
-                              height: 15,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Icon(Icons.print_rounded, size: 16),
-                      label: Text(
-                        _isPrinting ? 'Mencetak...' : 'Cetak / Simpan PDF',
-                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
-                      ),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.upiYellowDeep,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                    ),
-                  ],
-                ),
+      body: Column(
+        children: [
+          GradientHeader(
+            title: 'Lembar Cetak KHS',
+            subtitle: 'Periode ${widget.periode} • Dokumen Resmi Akademik',
+            leading: Navigator.of(context).canPop() ? const HeaderBackButton() : null,
+            actions: [
+              HeaderActionButton(
+                icon: Icons.copy_rounded,
+                tooltip: 'Salin Ringkasan KHS',
+                onPressed: () async {
+                  final data = await _future;
+                  if (mounted) _salinRincian(data);
+                },
               ),
+              HeaderActionButton(
+                icon: Icons.public_rounded,
+                tooltip: 'Buka di Browser',
+                onPressed: () async {
+                  final data = await _future;
+                  final url = pickString(data, ['url', 'print_url'], '');
+                  if (url.isNotEmpty && context.mounted) {
+                    await openExternal(context, url);
+                  }
+                },
+              ),
+              HeaderActionButton(
+                icon: Icons.refresh_rounded,
+                tooltip: 'Muat Ulang',
+                onPressed: () => setState(() => _future = _loadData()),
+              ),
+            ],
+          ),
+          Expanded(
+            child: FutureBuilder<Map<String, dynamic>>(
+              future: _future,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: LoadingView(label: 'Memuat lembar cetak KHS...'));
+                }
+                if (snapshot.hasError) {
+                  return ErrorRetry(
+                    message: 'Gagal memuat dokumen: ${snapshot.error}',
+                    onRetry: () => setState(() => _future = _loadData()),
+                  );
+                }
+
+                final data = snapshot.data ?? {};
+                final rows = _extractRows(data);
+                final htmlContent = _buildPrintableHtml(data, rows);
+
+                return Column(
+                  children: [
+                    // Banner Tombol Aksi Cetak Utama
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: context.card,
+                        border: Border(bottom: BorderSide(color: context.border, width: 0.5)),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Pratinjau Resmi KHS Universitas',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: context.textMuted,
+                              ),
+                            ),
+                          ),
+                          FilledButton.icon(
+                            onPressed: _isPrinting ? null : () => _cetakPdf(htmlContent),
+                            icon: _isPrinting
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1C1917)),
+                                    ),
+                                  )
+                                : const Icon(Icons.print_rounded, size: 18),
+                            label: Text(
+                              _isPrinting ? 'Mencetak...' : 'Cetak / Simpan PDF',
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                            ),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.primaryYellow,
+                              foregroundColor: const Color(0xFF1C1917),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
 
               // Lembar Kertas Preview
               Expanded(
@@ -618,7 +615,10 @@ class _KhsCetakScreenState extends State<KhsCetakScreen> {
           );
         },
       ),
-    );
+    ),
+  ],
+),
+);
   }
 
   Widget _buildPaperSheet(

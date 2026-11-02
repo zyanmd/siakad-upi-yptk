@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -24,24 +23,49 @@ void appToast(BuildContext context, String message, {bool error = false}) {
 String errorText(Object e) =>
     e is ApiException ? e.message : 'Terjadi kesalahan. Coba lagi.';
 
-/// Dialog konfirmasi iOS Cupertino style; return true bila setuju.
+/// Dialog konfirmasi Material bersih; return true bila setuju.
 Future<bool> confirmDialog(
     BuildContext context, String title, String message) async {
-  final ok = await showCupertinoDialog<bool>(
+  final ok = await showDialog<bool>(
     context: context,
-    builder: (ctx) => CupertinoAlertDialog(
-      title: Text(title),
-      content: Padding(
-        padding: const EdgeInsets.only(top: 6),
-        child: Text(message),
-      ),
-      actions: [
-        CupertinoDialogAction(
-          onPressed: () => Navigator.of(ctx).pop(false),
-          child: const Text('Batal'),
+    builder: (ctx) => AlertDialog(
+      backgroundColor: ctx.card,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.w700,
+          color: ctx.textPrimary,
         ),
-        CupertinoDialogAction(
-          isDestructiveAction: true,
+      ),
+      content: Text(
+        message,
+        style: TextStyle(
+          fontSize: 14,
+          color: ctx.textMuted,
+          height: 1.45,
+        ),
+      ),
+      actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: Text(
+            'Batal',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: ctx.textMuted,
+            ),
+          ),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.red,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          ),
           onPressed: () => Navigator.of(ctx).pop(true),
           child: const Text('Ya, Lanjutkan'),
         ),
@@ -72,9 +96,9 @@ Future<void> openExternal(BuildContext context, String url) async {
   }
 }
 
-Future<void> copyText(BuildContext context, String value) async {
+Future<void> copyText(BuildContext context, String value, [String? message]) async {
   await Clipboard.setData(ClipboardData(text: value));
-  if (context.mounted) appToast(context, 'Disalin ke clipboard');
+  if (context.mounted) appToast(context, message ?? 'Disalin ke clipboard');
 }
 
 // --------------------------------------------------------- State views
@@ -89,7 +113,14 @@ class LoadingView extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const CupertinoActivityIndicator(radius: 12),
+          const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryYellow),
+            ),
+          ),
           const SizedBox(height: 12),
           Text(label,
               style: TextStyle(
@@ -104,7 +135,7 @@ class LoadingView extends StatelessWidget {
 }
 
 class EmptyView extends StatelessWidget {
-  const EmptyView({super.key, this.icon = CupertinoIcons.tray, this.message});
+  const EmptyView({super.key, this.icon = Icons.inbox_outlined, this.message});
   final IconData icon;
   final String? message;
 
@@ -153,7 +184,7 @@ class ErrorRetry extends StatelessWidget {
                 color: AppColors.red.withValues(alpha: 0.10),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(CupertinoIcons.exclamationmark_circle,
+              child: const Icon(Icons.error_outline_rounded,
                   size: 32, color: AppColors.red),
             ),
             const SizedBox(height: 14),
@@ -171,14 +202,14 @@ class ErrorRetry extends StatelessWidget {
               onPressed: onRetry,
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.primaryYellow,
-                foregroundColor: const Color(0xFF1C1917),
+                foregroundColor: Colors.white,
                 elevation: 0,
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
               ),
-              icon: const Icon(CupertinoIcons.arrow_clockwise, size: 16),
+              icon: const Icon(Icons.refresh_rounded, size: 18),
               label: const Text('Coba Lagi',
                   style: TextStyle(fontWeight: FontWeight.w700)),
             ),
@@ -191,7 +222,7 @@ class ErrorRetry extends StatelessWidget {
 
 // --------------------------------------------------------- Building blocks
 
-/// Header seksi bergaya iOS Inset Grouped.
+/// Header seksi bergaya bersih & rapi.
 class SectionTitle extends StatelessWidget {
   const SectionTitle(this.title, {super.key, this.trailing});
   final String title;
@@ -208,7 +239,7 @@ class SectionTitle extends StatelessWidget {
             child: Text(
               title,
               style: TextStyle(
-                fontSize: 14.5,
+                fontSize: 15,
                 fontWeight: FontWeight.w700,
                 letterSpacing: -0.3,
                 color: context.textPrimary,
@@ -222,7 +253,31 @@ class SectionTitle extends StatelessWidget {
   }
 }
 
-/// Kartu permukaan iOS Inset Grouped dengan border hairline 0.5px.
+/// Pembungkus interaksi tap bersih dan responsif tanpa efek memantul iOS.
+class IosBounceTap extends StatelessWidget {
+  const IosBounceTap({
+    super.key,
+    required this.child,
+    this.onTap,
+    this.scaleFactor = 1.0,
+  });
+
+  final Widget child;
+  final VoidCallback? onTap;
+  final double scaleFactor;
+
+  @override
+  Widget build(BuildContext context) {
+    if (onTap == null) return child;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: child,
+    );
+  }
+}
+
+/// Kartu permukaan Material bersih dengan border halus dan bayangan lembut.
 class SurfaceCard extends StatelessWidget {
   const SurfaceCard({
     super.key,
@@ -239,37 +294,39 @@ class SurfaceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderSide = BorderSide(
-      color: context.border,
-      width: 0.5,
+    final decoration = BoxDecoration(
+      color: context.card,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: context.border, width: 1),
+      boxShadow: context.isDark
+          ? null
+          : [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
     );
+
+    if (onTap == null) {
+      return Container(
+        margin: margin,
+        decoration: decoration,
+        child: Padding(padding: padding, child: child),
+      );
+    }
 
     return Container(
       margin: margin,
-      decoration: BoxDecoration(
-        color: context.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.fromBorderSide(borderSide),
-        boxShadow: context.isDark
-            ? null
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-      ),
+      decoration: decoration,
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
-        child: onTap == null
-            ? Padding(padding: padding, child: child)
-            : InkWell(
-                onTap: onTap,
-                borderRadius: BorderRadius.circular(16),
-                child: Padding(padding: padding, child: child),
-              ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(padding: padding, child: child),
+        ),
       ),
     );
   }
@@ -462,7 +519,7 @@ class StatCard extends StatelessWidget {
   }
 }
 
-/// Tile menu grid khas iOS Home Screen / Springboard style.
+/// Tile menu grid modern dan rapi dengan efek tap bersih.
 class MenuTile extends StatelessWidget {
   const MenuTile({
     super.key,
@@ -479,66 +536,71 @@ class MenuTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: context.card,
+    return Container(
+      decoration: BoxDecoration(
+        color: context.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: context.border, width: 1),
+        boxShadow: context.isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: context.border, width: 0.5),
-          boxShadow: context.isDark
-              ? null
-              : [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.02),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                ],
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(11),
-              ),
-              child: Icon(icon, size: 20, color: color),
+                  child: Icon(icon, size: 20, color: color),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  label,
+                  maxLines: 2,
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.2,
+                    color: context.textPrimary,
+                    height: 1.2,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              maxLines: 2,
-              textAlign: TextAlign.center,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w600,
-                letterSpacing: -0.2,
-                color: context.textPrimary,
-                height: 1.15,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// InputDecoration bergaya iOS textfield.
+/// InputDecoration modern dan rapi.
 InputDecoration appInput(
   BuildContext context,
   String label, {
   IconData? icon,
   Widget? suffix,
 }) {
-  OutlineInputBorder border([Color? c, double w = 0.5]) => OutlineInputBorder(
+  OutlineInputBorder border([Color? c, double w = 1.0]) => OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: c ?? context.border, width: w),
       );
@@ -551,18 +613,170 @@ InputDecoration appInput(
       fontWeight: FontWeight.w400,
     ),
     prefixIcon:
-        icon != null ? Icon(icon, size: 19, color: context.textMuted) : null,
+        icon != null ? Icon(icon, size: 20, color: context.textMuted) : null,
     suffixIcon: suffix,
     filled: true,
-    fillColor: context.isDark
-        ? const Color(0xFF1C1C1E)
-        : Colors.white,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    fillColor: context.card,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     border: border(),
     enabledBorder: border(),
-    focusedBorder: border(AppColors.primaryYellow, 1.2),
+    focusedBorder: border(AppColors.primaryYellow, 1.5),
   );
 }
 
 /// Judul kolom kecil untuk item list.
 String moneyOrRaw(String key, dynamic v) => formatValue(key, v);
+
+// ═══════════════════════════════════════════════════════════════════
+//  SEAMLESS WAVE CLIPPER (DIPERBAIKI TOTAL)
+// ═══════════════════════════════════════════════════════════════════
+
+/// Clipper kurva gelombang asimetris organik yang **SEAMLESS** —
+/// dapat disambung sempurna antar widget/header tanpa celah.
+///
+/// Karakteristik:
+/// - **Tinggi ujung kiri == tinggi ujung kanan** (`baseY`), sehingga bila
+///   dipakai pada dua header bertumpuk atau disambung ke widget lain,
+///   tidak akan muncul celah/step.
+/// - **C1-continuous**: dua segmen cubic Bezier yang tangen-nya nyambung
+///   di titik tengah (0.5w), sehingga tidak ada "patahan" halus.
+/// - **Natural**: lekukan turun membentuk ombak asimetris (lebih dalam di
+///   kiri-tengah, lalu naik lembut ke kanan) — persis seperti kurva IPB /
+///   header akademik modern.
+///
+/// Parameter:
+/// - [waveHeight]: kedalaman dasar lekukan dari bawah widget (kiri == kanan).
+/// - [waveDip]:    ekstra kedalaman di titik ombak terendah.
+///
+/// **Penting**: `padding.bottom` pada header yang memakai clipper ini
+/// harus `>= waveHeight + waveDip + 8` agar konten tidak tertutup.
+class SeamlessWaveClipper extends CustomClipper<Path> {
+  const SeamlessWaveClipper({
+    this.waveHeight = 28,
+    this.waveDip = 14,
+  });
+
+  final double waveHeight;
+  final double waveDip;
+
+  @override
+  Path getClip(Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    // Garis dasar lekukan (kiri == kanan) → seamless.
+    final baseY = h - waveHeight;
+
+    final path = Path()..moveTo(0, 0);
+
+    // Sisi kiri turun lurus ke awal lekukan.
+    path.lineTo(0, baseY);
+
+    // ── Segmen 1: turun membentuk lembah ombak (0 → 0.5w) ──
+    path.cubicTo(
+      w * 0.16, baseY + waveDip * 1.55, // cp1: mulai turun
+      w * 0.34, baseY + waveDip * 2.00, // cp2: titik terendah
+      w * 0.50, baseY + waveDip * 1.05, // akhir segmen 1 (tengah)
+    );
+
+    // ── Segmen 2: naik kembali ke kanan (0.5w → w) ──
+    // Tangen di titik sambung (0.5w) searah dengan segmen 1 → C1-continuous.
+    path.cubicTo(
+      w * 0.66, baseY + waveDip * 0.10, // cp1: lanjut naik
+      w * 0.84, baseY - waveDip * 0.05, // cp2: sedikit di atas base
+      w,        baseY,                  // akhir: kembali ke baseY (sama dgn kiri)
+    );
+
+    // Naik ke kanan atas & tutup path.
+    path.lineTo(w, 0);
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(covariant SeamlessWaveClipper oldClipper) =>
+      oldClipper.waveHeight != waveHeight || oldClipper.waveDip != waveDip;
+}
+
+/// Helper: tinggi total area lekukan yang perlu diakomodasi sebagai padding.
+/// Gunakan ini untuk menghitung `padding.bottom` header agar konsisten.
+double seamlessWaveReservedHeight({double waveHeight = 28, double waveDip = 14}) =>
+    waveHeight + waveDip + 8;
+
+/// Padding bawah standar untuk SEMUA header berlekuk.
+///
+/// Dipakai seragam oleh seluruh halaman agar lekukan/curve header terlihat
+/// persis sama di mana pun dan tidak menutupi teks/badge di bawahnya.
+const double kCurvedHeaderBottomPadding = 68;
+
+// ═══════════════════════════════════════════════════════════════════
+//  RESPONSIVE DESKTOP HELPERS
+// ═══════════════════════════════════════════════════════════════════
+
+/// Lebar maksimum konten agar tetap nyaman dibaca pada layar desktop lebar
+/// (browser / tablet landscape). Tanpa batas ini, konten akan melebar
+/// penuh dari tepi ke tepi pada monitor besar.
+const double kMaxContentWidth = 1100;
+
+/// Ambang lebar layar untuk dianggap sebagai "desktop" (web/browser lebar).
+const double kDesktopBreakpoint = 900;
+
+/// `true` bila lebar layar berada pada rentang desktop.
+bool isDesktopWidth(BuildContext context) =>
+    MediaQuery.sizeOf(context).width >= kDesktopBreakpoint;
+
+/// Membungkus konten anak agar terpusat dengan lebar maksimum [maxWidth]
+/// pada layar lebar, dan tetap penuh pada layar sempit/hp.
+///
+/// Aman dipakai sebagai pembungkus utama maupun di dalam kolom scroll.
+class ResponsiveCenter extends StatelessWidget {
+  const ResponsiveCenter({
+    super.key,
+    required this.child,
+    this.maxWidth = kMaxContentWidth,
+    this.alignment = Alignment.topCenter,
+  });
+
+  final Widget child;
+  final double maxWidth;
+  final Alignment alignment;
+
+  @override
+  Widget build(BuildContext context) {
+    // Pada layar yang lebih sempit dari [maxWidth] (mis. semua HP), jangan
+    // membungkus apa pun supaya layout mobile 100% identik dengan sebelumnya.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (!constraints.hasBoundedWidth || constraints.maxWidth <= maxWidth) {
+          return child;
+        }
+        return Align(
+          alignment: alignment,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxWidth),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Bingkai aplikasi untuk layar lebar.
+///
+/// Pada desktop/web, aplikasi mengisi seluruh jendela (navigation rail di
+/// kiri + konten di kanan). Kelas ini disediakan agar `MaterialApp.builder`
+/// tetap punya titik ekstensi tunggal bila kelak perlu menambahkan
+/// kanvas/padding global, tanpa mengganggu layout mobile.
+class DesktopFrame extends StatelessWidget {
+  const DesktopFrame({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    // Aplikasi mengisi penuh layar di semua ukuran; pembatas lebar konten
+    // ditangani oleh [ResponsiveCenter] per-halaman.
+    return child;
+  }
+}

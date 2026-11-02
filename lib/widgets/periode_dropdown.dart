@@ -16,21 +16,21 @@ class PeriodeSelector extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.14),
+            color: context.softFill,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withOpacity(0.22)),
+            border: Border.all(color: context.border, width: 0.5),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(Icons.event_note_rounded,
-                  size: 16, color: Colors.white70),
+                  size: 16, color: AppColors.upiYellowDeep),
               const SizedBox(width: 8),
               if (pp.items.isEmpty)
                 Text(
                   'Periode ${pp.value ?? '-'}',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: context.textPrimary,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                   ),
@@ -39,15 +39,14 @@ class PeriodeSelector extends StatelessWidget {
                 DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: pp.value,
-                    dropdownColor:
-                        context.isDark ? const Color(0xFF1B2140) : Colors.white,
+                    dropdownColor: context.card,
                     borderRadius: BorderRadius.circular(12),
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded,
-                        color: Colors.white70, size: 19),
+                    icon: Icon(Icons.keyboard_arrow_down_rounded,
+                        color: context.textMuted, size: 19),
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: context.isDark ? Colors.white : AppColors.indigo900,
+                      color: context.textPrimary,
                     ),
                     items: pp.items
                         .map((e) => DropdownMenuItem<String>(
@@ -64,8 +63,8 @@ class PeriodeSelector extends StatelessWidget {
               IconButton(
                 visualDensity: VisualDensity.compact,
                 onPressed: pp.forceReload,
-                icon: const Icon(Icons.refresh_rounded,
-                    size: 17, color: Colors.white70),
+                icon: Icon(Icons.refresh_rounded,
+                    size: 17, color: context.textMuted),
                 tooltip: 'Muat ulang periode',
               ),
             ],
@@ -96,33 +95,32 @@ class PillDropdown extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.14),
+        color: context.softFill,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.22)),
+        border: Border.all(color: context.border, width: 0.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(Icons.calendar_month_rounded,
-              size: 16, color: Colors.white70),
+              size: 16, color: AppColors.upiYellowDeep),
           const SizedBox(width: 8),
           DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: value,
               hint: Text(hint,
-                  style: const TextStyle(
-                      color: Colors.white70,
+                  style: TextStyle(
+                      color: context.textMuted,
                       fontSize: 13,
                       fontWeight: FontWeight.w600)),
-              dropdownColor:
-                  context.isDark ? const Color(0xFF1B2140) : Colors.white,
+              dropdownColor: context.card,
               borderRadius: BorderRadius.circular(12),
-              icon: const Icon(Icons.keyboard_arrow_down_rounded,
-                  color: Colors.white70, size: 19),
+              icon: Icon(Icons.keyboard_arrow_down_rounded,
+                  color: context.textMuted, size: 19),
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
-                color: context.isDark ? Colors.white : AppColors.indigo900,
+                color: context.textPrimary,
               ),
               items: items,
               onChanged: onChanged,

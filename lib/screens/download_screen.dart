@@ -1,5 +1,5 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
@@ -9,6 +9,13 @@ import '../theme/app_theme.dart';
 import '../utils/smart.dart';
 import '../widgets/common.dart';
 import 'dokumen_viewer_screen.dart';
+
+// ── UPI YPTK Golden Yellow Gradient (header lekukan) ──
+const _yellowHeaderGradient = [
+  Color(0xFFE5A620), // Bright Academic Gold
+  Color(0xFFD48B08), // UPI Yellow
+  Color(0xFFB87500), // Deep Academic Gold
+];
 
 /// Layar Download Dokumen Mahasiswa:
 /// Menampilkan formulir, panduan akademik, dan dokumen resmi universitas
@@ -330,10 +337,10 @@ class _DownloadScreenState extends State<DownloadScreen> {
               const SizedBox(height: 18),
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
                     backgroundColor: AppColors.upiYellowDeep,
-                    foregroundColor: AppColors.indigo950,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
@@ -454,103 +461,239 @@ class _DownloadScreenState extends State<DownloadScreen> {
     final dokumenList = asList(mapData['dokumen']).map((e) => asMap(e)).toList();
 
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          // 1. Sliver AppBar Emas UPI YPTK
-          SliverAppBar(
-            pinned: true,
-            expandedHeight: 120,
-            flexibleSpace: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: AppColors.headerGradient,
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: FlexibleSpaceBar(
-                titlePadding: const EdgeInsets.only(left: 56, bottom: 16),
-                title: Text(
-                  judul,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ),
-            actions: [
-              IconButton(
-                tooltip: 'Segarkan Data',
-                icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-                onPressed: _loadData,
-              ),
-            ],
+      backgroundColor: context.bg,
+      body: Column(
+        children: [
+          _buildCurvedYellowHeader(
+            judul: judul.isNotEmpty ? judul : 'Download Dokumen',
           ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 104),
+              children: [
+                // Hero Header Card
+                _buildHeroCard(
+                  eyebrow: eyebrow,
+                  judul: judul,
+                  deskripsi: deskripsi,
+                  total: total,
+                  totalLabel: totalLabel,
+                  securityNote: securityNote,
+                ),
+                const SizedBox(height: 16),
 
-          // 2. Konten Utama
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Hero Header Card
-                  _buildHeroCard(
-                    eyebrow: eyebrow,
-                    judul: judul,
-                    deskripsi: deskripsi,
-                    total: total,
-                    totalLabel: totalLabel,
-                    securityNote: securityNote,
-                  ),
-                  const SizedBox(height: 16),
+                // Kotak Pencarian
+                _buildSearchBar(),
+                const SizedBox(height: 12),
 
-                  // Kotak Pencarian
-                  _buildSearchBar(),
-                  const SizedBox(height: 12),
-
-                  // Filter Kategori
-                  if (_kategoriList.isNotEmpty) ...[
-                    _buildKategoriFilter(),
-                    const SizedBox(height: 14),
-                  ],
-
-                  // Indikator Loading / Error / Konten
-                  if (_isLoading)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 40),
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.upiYellowDeep,
-                        ),
-                      ),
-                    )
-                  else if (_error != null)
-                    ErrorRetry(
-                      message: _error!,
-                      onRetry: _loadData,
-                    )
-                  else if (dokumenList.isEmpty)
-                    EmptyView(
-                      message: _searchQuery.isNotEmpty || _selectedKategori.isNotEmpty
-                          ? 'Tidak ada dokumen yang cocok dengan filter yang dipilih.'
-                          : 'Belum ada dokumen yang tersedia untuk diunduh.',
-                    )
-                  else ...[
-                    SectionTitle('Daftar Dokumen ($total $totalLabel)'),
-                    const SizedBox(height: 10),
-                    for (final doc in dokumenList)
-                      _buildDokumenCard(doc),
-                  ],
-
-                  const SizedBox(height: 40),
+                // Filter Kategori
+                if (_kategoriList.isNotEmpty) ...[
+                  _buildKategoriFilter(),
+                  const SizedBox(height: 14),
                 ],
-              ),
+
+                // Indikator Loading / Error / Konten
+                if (_isLoading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.upiYellowDeep,
+                      ),
+                    ),
+                  )
+                else if (_error != null)
+                  ErrorRetry(
+                    message: _error!,
+                    onRetry: _loadData,
+                  )
+                else if (dokumenList.isEmpty)
+                  EmptyView(
+                    message: _searchQuery.isNotEmpty || _selectedKategori.isNotEmpty
+                        ? 'Tidak ada dokumen yang cocok dengan filter yang dipilih.'
+                        : 'Belum ada dokumen yang tersedia untuk diunduh.',
+                  )
+                else ...[
+                  SectionTitle('Daftar Dokumen ($total $totalLabel)'),
+                  const SizedBox(height: 10),
+                  for (final doc in dokumenList)
+                    _buildDokumenCard(doc),
+                ],
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────── HEADER KUNING DENGAN LEKUKAN
+  Widget _buildCurvedYellowHeader({required String judul}) {
+    final canPop = Navigator.of(context).canPop();
+
+    return ClipPath(
+      clipper: const SeamlessWaveClipper(),
+      child: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: _yellowHeaderGradient,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 12, 22, kCurvedHeaderBottomPadding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Baris Atas: Back Button + Judul + Tombol Segarkan
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (canPop) ...[
+                          IconButton(
+                            onPressed: () {
+                              Navigator.of(context).maybePop();
+                            },
+                            icon: const Icon(Icons.arrow_back_rounded,
+                                color: Colors.white, size: 24),
+                            tooltip: 'Kembali',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        const Text(
+                          'Download Dokumen',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 21,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                    IosBounceTap(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        _loadData();
+                      },
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.22),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.10),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.refresh_rounded,
+                            size: 20, color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Baris Info: Lingkaran Ikon + Judul Dokumen
+                Row(
+                  children: [
+                    Container(
+                      width: 54,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.18),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.85),
+                          width: 1.8,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          Icons.file_download_rounded,
+                          size: 27,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            judul,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 17.5,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.4,
+                            ),
+                          ),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              const Text(
+                                'Formulir, panduan & dokumen resmi',
+                                style: TextStyle(
+                                  color: Color(0xE6FFFFFF),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.22),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  'UPI YPTK',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -564,19 +707,18 @@ class _DownloadScreenState extends State<DownloadScreen> {
     required String totalLabel,
     required String securityNote,
   }) {
+    final isDark = context.isDark;
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.indigo950, AppColors.indigo900],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: AppColors.indigo950.withValues(alpha: 0.3),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.3)
+                : Colors.black.withValues(alpha: 0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -588,10 +730,10 @@ class _DownloadScreenState extends State<DownloadScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
                 decoration: BoxDecoration(
-                  color: AppColors.upiYellowDeep.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
+                  color: AppColors.upiYellowDeep.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: AppColors.upiYellowDeep.withValues(alpha: 0.35),
                   ),
@@ -599,7 +741,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
                 child: Text(
                   eyebrow.toUpperCase(),
                   style: const TextStyle(
-                    color: AppColors.amberLight,
+                    color: AppColors.upiYellowDeep,
                     fontSize: 10.5,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.8,
@@ -607,23 +749,24 @@ class _DownloadScreenState extends State<DownloadScreen> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
+                  color: context.softFill,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: context.border),
                 ),
                 child: Row(
                   children: [
                     const Icon(
                       Icons.folder_shared_rounded,
-                      color: AppColors.amberLight,
+                      color: AppColors.upiYellowDeep,
                       size: 13,
                     ),
                     const SizedBox(width: 5),
                     Text(
                       '$total $totalLabel',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: context.textPrimary,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                       ),
@@ -634,20 +777,20 @@ class _DownloadScreenState extends State<DownloadScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'Unduh Dokumen & Panduan',
             style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
+              color: context.textPrimary,
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 5),
           Text(
             deskripsi,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.8),
-              fontSize: 12,
+              color: context.textMuted,
+              fontSize: 12.5,
               height: 1.4,
             ),
           ),
@@ -656,17 +799,15 @@ class _DownloadScreenState extends State<DownloadScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.08),
+                color: context.softFill,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.12),
-                ),
+                border: Border.all(color: context.border),
               ),
               child: Row(
                 children: [
                   const Icon(
                     Icons.lock_outline_rounded,
-                    color: AppColors.amberLight,
+                    color: AppColors.upiYellowDeep,
                     size: 14,
                   ),
                   const SizedBox(width: 8),
@@ -674,7 +815,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
                     child: Text(
                       securityNote,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.88),
+                        color: context.textMuted,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
@@ -691,16 +832,18 @@ class _DownloadScreenState extends State<DownloadScreen> {
 
   // ----------------------------------------------------------- Search Bar
   Widget _buildSearchBar() {
+    final isDark = context.isDark;
     return Container(
       decoration: BoxDecoration(
-        color: context.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: context.border),
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.3)
+                : Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -750,18 +893,19 @@ class _DownloadScreenState extends State<DownloadScreen> {
             label: Text(label),
             selected: isSelected,
             onSelected: (_) => _onSelectKategori(value),
-            selectedColor: AppColors.upiYellowDeep,
-            backgroundColor: context.card,
-            checkmarkColor: AppColors.indigo950,
+            selectedColor: AppColors.primaryYellow,
+            backgroundColor: context.softFill,
+            checkmarkColor: const Color(0xFF1C1917),
             labelStyle: TextStyle(
               fontSize: 12,
               fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-              color: isSelected ? AppColors.indigo950 : ctx.textPrimary,
+              color: isSelected ? const Color(0xFF1C1917) : ctx.textPrimary,
             ),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
               side: BorderSide(
-                color: isSelected ? AppColors.upiYellowDeep : context.border,
+                color: isSelected ? AppColors.primaryYellow : context.border,
+                width: 0.5,
               ),
             ),
           );
@@ -787,25 +931,28 @@ class _DownloadScreenState extends State<DownloadScreen> {
     final fileIcon = _getFileIcon(format, judul, kategori);
     final fileColor = _getFileColor(format, judul, kategori);
 
+    final isDark = context.isDark;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: context.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: context.border),
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.3)
+                : Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           onTap: () => _bukaDiAplikasi(doc),
           child: Padding(
             padding: const EdgeInsets.all(16),

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../services/session_store.dart';
 import '../theme/app_theme.dart';
+import '../utils/app_strings.dart';
 
 /// Mode tema aplikasi.
 enum AppThemeMode { system, light, dark }
@@ -62,21 +63,21 @@ class ThemeModeSwitcher extends StatelessWidget {
   Widget build(BuildContext context) {
     final tp = context.watch<ThemeProvider>();
     return SegmentedButton<AppThemeMode>(
-      segments: const [
+      segments: [
         ButtonSegment(
           value: AppThemeMode.system,
-          label: Text('Sistem'),
-          icon: Icon(Icons.brightness_auto_rounded, size: 17),
+          label: Text(context.tr('theme_system', 'Sistem')),
+          icon: const Icon(Icons.brightness_auto_rounded, size: 17),
         ),
         ButtonSegment(
           value: AppThemeMode.light,
-          label: Text('Terang'),
-          icon: Icon(Icons.light_mode_rounded, size: 17),
+          label: Text(context.tr('theme_light', 'Terang')),
+          icon: const Icon(Icons.light_mode_rounded, size: 17),
         ),
         ButtonSegment(
           value: AppThemeMode.dark,
-          label: Text('Gelap'),
-          icon: Icon(Icons.dark_mode_rounded, size: 17),
+          label: Text(context.tr('theme_dark', 'Gelap')),
+          icon: const Icon(Icons.dark_mode_rounded, size: 17),
         ),
       ],
       selected: {tp.mode},

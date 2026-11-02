@@ -1,6 +1,7 @@
 /// Helper pintar untuk membaca JSON hasil scraper yang bentuknya
 /// bisa berubah-ubah: akses key defensif, pencarian rekursif (BFS),
 /// dan deteksi list of map.
+library;
 
 Map<String, dynamic> asMap(dynamic v) =>
     v is Map ? v.cast<String, dynamic>() : <String, dynamic>{};

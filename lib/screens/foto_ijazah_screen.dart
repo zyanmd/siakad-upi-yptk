@@ -1,13 +1,22 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../services/api_client.dart';
 import '../services/wisuda_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/format.dart';
 import '../utils/smart.dart';
 import '../widgets/common.dart';
+import 'kartu_qrcode_wisuda_screen.dart';
+
+// ── UPI YPTK Golden Yellow Gradient (header lekukan) ──
+const _yellowHeaderGradient = [
+  Color(0xFFE5A620), // Bright Academic Gold
+  Color(0xFFD48B08), // UPI Yellow
+  Color(0xFFB87500), // Deep Academic Gold
+];
 
 /// Layar Upload & Pengelolaan Foto Ijazah Wisuda Mahasiswa:
 /// Menampilkan status foto resmi, panduan busana (jas/kebaya latar merah 3:4),
@@ -312,51 +321,19 @@ class _FotoIjazahScreenState extends State<FotoIjazahScreen> {
     final petunjukList = asList(_data['petunjuk']).map((e) => asMap(e)).toList();
 
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          // 1. Sliver AppBar Emas UPI YPTK
-          SliverAppBar(
-            pinned: true,
-            expandedHeight: 120,
-            flexibleSpace: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: AppColors.headerGradient,
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: const FlexibleSpaceBar(
-                titlePadding: EdgeInsets.only(left: 56, bottom: 16),
-                title: Text(
-                  'Foto Ijazah Wisuda',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ),
-            actions: [
-              IconButton(
-                tooltip: 'Segarkan',
-                icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-                onPressed: () {
-                  _loadMetadata();
-                },
-              ),
-            ],
+      backgroundColor: context.bg,
+      body: Column(
+        children: [
+          _buildCurvedYellowHeader(
+            nama: nama,
+            nim: nim,
+            photoState: photoState,
+            hasPhoto: hasPhoto,
           ),
-
-          // 2. Konten Layar
-          SliverToBoxAdapter(
+          Expanded(
             child: _isLoading
-                ? const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 60),
-                    child: Center(
-                      child: LoadingView(label: 'Memuat data foto ijazah...'),
-                    ),
+                ? const Center(
+                    child: LoadingView(label: 'Memuat data foto ijazah...'),
                   )
                 : _error != null
                     ? Padding(
@@ -366,10 +343,11 @@ class _FotoIjazahScreenState extends State<FotoIjazahScreen> {
                           onRetry: _loadMetadata,
                         ),
                       )
-                    : Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                    : RefreshIndicator(
+                        color: AppColors.upiYellowDeep,
+                        onRefresh: _loadMetadata,
+                        child: ListView(
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 104),
                           children: [
                             // Kartu Data Mahasiswa
                             _buildMahasiswaCard(
@@ -409,13 +387,257 @@ class _FotoIjazahScreenState extends State<FotoIjazahScreen> {
                                 _buildPetunjukCard(petunjukList[i], i + 1),
                               const SizedBox(height: 20),
                             ],
-
-                            const SizedBox(height: 30),
                           ],
                         ),
                       ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────── HEADER KUNING DENGAN LEKUKAN
+  Widget _buildCurvedYellowHeader({
+    required String nama,
+    required String nim,
+    required String photoState,
+    required bool hasPhoto,
+  }) {
+    final canPop = Navigator.of(context).canPop();
+
+    return ClipPath(
+      clipper: const SeamlessWaveClipper(),
+      child: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: _yellowHeaderGradient,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 12, 22, kCurvedHeaderBottomPadding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Baris Atas: Back Button + Judul + Tombol Segarkan
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (canPop) ...[
+                          IconButton(
+                            onPressed: () {
+                              Navigator.of(context).maybePop();
+                            },
+                            icon: const Icon(Icons.arrow_back_rounded,
+                                color: Colors.white, size: 24),
+                            tooltip: 'Kembali',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        const Text(
+                          'Foto Ijazah Wisuda',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 21,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IosBounceTap(
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const KartuQrCodeWisudaScreen(),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.22),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.10),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.qr_code_2_rounded,
+                              size: 21,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IosBounceTap(
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            _loadMetadata();
+                          },
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.22),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.10),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(Icons.refresh_rounded,
+                                size: 20, color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Baris Info: Avatar Inisial + Nama/NIM + Badge Status Foto
+                Row(
+                  children: [
+                    Container(
+                      width: 54,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.18),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.85),
+                          width: 1.8,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Text(
+                          initialsOf(nama),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            nama.isNotEmpty ? nama : 'Mahasiswa UPI YPTK',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 17.5,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.4,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                nim.isNotEmpty ? 'NIM $nim' : '-',
+                                style: const TextStyle(
+                                  color: Color(0xE6FFFFFF),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.22),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  'UPI YPTK',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.28),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      hasPhoto
+                                          ? Icons.check_circle_rounded
+                                          : Icons.info_rounded,
+                                      size: 11,
+                                      color: Colors.white,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      photoState,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.3,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -427,19 +649,20 @@ class _FotoIjazahScreenState extends State<FotoIjazahScreen> {
     required String prodi,
     required String fakultas,
   }) {
+    final inisial = nama.isNotEmpty ? nama[0].toUpperCase() : 'M';
+    final isDark = context.isDark;
+
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.indigo950, AppColors.indigo900],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(18),
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: AppColors.indigo950.withValues(alpha: 0.25),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.3)
+                : Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -450,19 +673,24 @@ class _FotoIjazahScreenState extends State<FotoIjazahScreen> {
           Row(
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
-                  color: AppColors.upiYellowDeep.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: AppColors.upiYellowDeep.withValues(alpha: 0.4),
+                  gradient: const LinearGradient(
+                    colors: [AppColors.amber, AppColors.upiYellowDeep],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(
-                  Icons.school_rounded,
-                  color: AppColors.amberLight,
-                  size: 22,
+                alignment: Alignment.center,
+                child: Text(
+                  inisial,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 20,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -472,19 +700,21 @@ class _FotoIjazahScreenState extends State<FotoIjazahScreen> {
                   children: [
                     Text(
                       nama,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: context.textPrimary,
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'NIM: $nim',
                       style: const TextStyle(
-                        color: AppColors.amberLight,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                        color: AppColors.upiYellowDeep,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
@@ -493,28 +723,61 @@ class _FotoIjazahScreenState extends State<FotoIjazahScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          const Divider(color: Colors.white24, height: 1),
+          const Divider(height: 1),
           const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
-                child: Text(
-                  'Program Studi:\n$prodi',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.85),
-                    fontSize: 11.5,
-                    height: 1.3,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Program Studi',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: context.textMuted,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      prodi,
+                      style: TextStyle(
+                        color: context.textPrimary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
               ),
+              const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  'Fakultas:\n$fakultas',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.85),
-                    fontSize: 11.5,
-                    height: 1.3,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Fakultas',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: context.textMuted,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      fakultas,
+                      style: TextStyle(
+                        color: context.textPrimary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -530,17 +793,19 @@ class _FotoIjazahScreenState extends State<FotoIjazahScreen> {
     required String photoState,
   }) {
     final statusColor = hasPhoto ? AppColors.green : AppColors.orange;
+    final isDark = context.isDark;
 
     return Container(
       decoration: BoxDecoration(
-        color: context.card,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: context.border),
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.3)
+                : Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -729,14 +994,13 @@ class _FotoIjazahScreenState extends State<FotoIjazahScreen> {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    ElevatedButton.icon(
+                    FilledButton.icon(
                       onPressed: _pilihSumberFoto,
-                      style: ElevatedButton.styleFrom(
+                      style: FilledButton.styleFrom(
                         backgroundColor: AppColors.upiYellowDeep,
-                        foregroundColor: AppColors.indigo950,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        elevation: 0,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       icon: const Icon(Icons.upload_file_rounded, size: 16),
                       label: const Text(
@@ -860,7 +1124,8 @@ class _FotoIjazahScreenState extends State<FotoIjazahScreen> {
                   onPressed: _isUploading ? null : _pilihSumberFoto,
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    side: BorderSide(color: context.border),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   child: const Text('Ganti Foto'),
                 ),
@@ -868,14 +1133,13 @@ class _FotoIjazahScreenState extends State<FotoIjazahScreen> {
               const SizedBox(width: 10),
               Expanded(
                 flex: 2,
-                child: ElevatedButton.icon(
+                child: FilledButton.icon(
                   onPressed: _isUploading ? null : _unggahFoto,
-                  style: ElevatedButton.styleFrom(
+                  style: FilledButton.styleFrom(
                     backgroundColor: AppColors.upiYellowDeep,
-                    foregroundColor: AppColors.indigo950,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   icon: _isUploading
                       ? const SizedBox(
@@ -883,7 +1147,7 @@ class _FotoIjazahScreenState extends State<FotoIjazahScreen> {
                           height: 16,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: AppColors.indigo950,
+                            color: Colors.white,
                           ),
                         )
                       : const Icon(Icons.cloud_upload_rounded, size: 18),

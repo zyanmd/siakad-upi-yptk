@@ -4,11 +4,17 @@ import 'package:provider/provider.dart';
 
 import '../services/api_client.dart';
 import '../services/tagihan_service.dart';
+import '../state/auth_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/format.dart';
 import '../utils/smart.dart';
 import '../widgets/common.dart';
-import '../widgets/gradient_header.dart';
+
+const _yellowHeaderGradient = [
+  Color(0xFFE5A620), // Bright Academic Gold
+  Color(0xFFD48B08), // UPI Yellow
+  Color(0xFFB87500), // Deep Academic Gold
+];
 
 /// Halaman Tagihan & Pembayaran Keuangan Mahasiswa:
 /// Menampilkan ringkasan invoice semester, rincian pembayaran,
@@ -21,50 +27,288 @@ class TagihanScreen extends StatefulWidget {
 }
 
 class _TagihanScreenState extends State<TagihanScreen> {
+  int _refreshKey = 0;
+
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    final isDark = context.isDark;
+    final bg = isDark ? const Color(0xFF000000) : const Color(0xFFF9FAFB);
+
     return DefaultTabController(
       length: 4,
       child: Scaffold(
-        backgroundColor: context.bg,
+        backgroundColor: bg,
         body: Column(
           children: [
-            GradientHeader(
-              title: 'Tagihan & Pembayaran',
-              subtitle: 'Kelola kewajiban biaya kuliah dan virtual account',
-              leading: Navigator.of(context).canPop()
-                  ? const HeaderBackButton()
-                  : null,
-              bottom: TabBar(
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
-                labelColor: AppColors.amberLight,
-                unselectedLabelColor: Colors.white.withValues(alpha: 0.65),
-                indicatorColor: AppColors.amber,
-                indicatorWeight: 3,
-                dividerColor: Colors.transparent,
-                labelStyle: const TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
+            // ──── HEADER KUNING DENGAN LEKUKAN BERSAMBUNG & FLOATING PILL TABS ────
+            Stack(
+              alignment: Alignment.bottomCenter,
+              clipBehavior: Clip.none,
+              children: [
+                _buildCurvedYellowHeader(auth.nama, auth.nim),
+                Positioned(
+                  bottom: -18,
+                  left: 0,
+                  right: 0,
+                  child: _buildPillTabBar(context, isDark),
                 ),
-                tabs: const [
-                  Tab(text: 'Daftar Tagihan'),
-                  Tab(text: 'Virtual Account'),
-                  Tab(text: 'Riwayat Transaksi'),
-                  Tab(text: 'Status Keuangan'),
-                ],
+              ],
+            ),
+            const SizedBox(height: 32),
+            Expanded(
+              child: ResponsiveCenter(
+                child: TabBarView(
+                  key: ValueKey(_refreshKey),
+                  children: const [
+                    _TagihanTab(),
+                    _VaTab(),
+                    _RiwayatTab(),
+                    _StatusTab(),
+                  ],
+                ),
               ),
             ),
-            const Expanded(
-              child: TabBarView(
-                children: [
-                  _TagihanTab(),
-                  _VaTab(),
-                  _RiwayatTab(),
-                  _StatusTab(),
-                ],
-              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ────────────────────────────────────────────────── HEADER KUNING DENGAN LEKUKAN BERSAMBUNG
+  Widget _buildCurvedYellowHeader(String nama, String nim) {
+    final canPop = Navigator.of(context).canPop();
+
+    return ClipPath(
+      clipper: const SeamlessWaveClipper(),
+      child: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: _yellowHeaderGradient,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 12, 22, kCurvedHeaderBottomPadding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Baris Atas: Judul Halaman dan Tombol Aksi
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (canPop) ...[
+                          IconButton(
+                            onPressed: () {
+                              HapticFeedback.selectionClick();
+                              Navigator.of(context).maybePop();
+                            },
+                            icon: const Icon(Icons.arrow_back_rounded,
+                                color: Colors.white, size: 24),
+                            tooltip: 'Kembali',
+                            splashRadius: 20,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        const Text(
+                          'Keuangan & Tagihan',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 21,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Tombol Refresh data tagihan
+                    IosBounceTap(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        setState(() => _refreshKey++);
+                        appToast(context, 'Memuat ulang data keuangan...');
+                      },
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.22),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.10),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.refresh_rounded,
+                          size: 20,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Baris Profil: Lingkaran Icon (54x54) + Nama & NIM Mahasiswa
+                Row(
+                  children: [
+                    Container(
+                      width: 54,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.18),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.85),
+                          width: 1.8,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          Icons.account_balance_wallet_rounded,
+                          size: 27,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+
+                    // Teks Nama Mahasiswa & Info
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            nama.isNotEmpty ? nama : 'Mahasiswa UPI YPTK',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 17.5,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.4,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                nim.isNotEmpty ? nim : 'Administrasi Keuangan',
+                                style: const TextStyle(
+                                  color: Color(0xE6FFFFFF),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.22),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  'BSI VA',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ────────────────────────────────────────────────── FLOATING PILL TAB BAR
+  //  Disamakan dengan gaya Pill Tabs pada Dashboard (patokan):
+  //  container putih/abu rounded 30, tab aktif memakai gradien kuning UPI.
+  Widget _buildPillTabBar(BuildContext context, bool isDark) {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 14),
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: isDark
+                  ? Colors.black.withValues(alpha: 0.30)
+                  : Colors.black.withValues(alpha: 0.08),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: TabBar(
+          isScrollable: true,
+          tabAlignment: TabAlignment.center,
+          padding: EdgeInsets.zero,
+          indicatorSize: TabBarIndicatorSize.tab,
+          indicator: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: _yellowHeaderGradient,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.all(Radius.circular(26)),
+          ),
+          labelColor: Colors.white,
+          unselectedLabelColor:
+              isDark ? const Color(0xFF98989F) : const Color(0xFF6B7280),
+          dividerColor: Colors.transparent,
+          labelStyle: const TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.2,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.2,
+          ),
+          tabs: const [
+            Tab(text: 'Daftar Tagihan'),
+            Tab(text: 'Virtual Account'),
+            Tab(text: 'Riwayat Transaksi'),
+            Tab(text: 'Status Keuangan'),
           ],
         ),
       ),
@@ -236,6 +480,7 @@ class _TagihanTabState extends State<_TagihanTab>
     );
   }
 
+  // Kartu ringkasan bergaya bersih seperti Dashboard: putih, rounded 16, shadow halus.
   Widget _buildHeroSummaryCard({
     required String namaMhs,
     required String nimMhs,
@@ -246,41 +491,74 @@ class _TagihanTabState extends State<_TagihanTab>
     required String lunasCount,
     required String belumCount,
   }) {
+    final isDark = context.isDark;
+
+    // Kartu mengikuti tema seperti kartu Virtual Account: putih saat terang, gelap saat gelap.
     return Container(
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF78350F), // Deep Warm Amber
-            Color(0xFFB45309), // UPI YPTK Gold
-            Color(0xFF1E293B), // Dark Navy
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: AppColors.upiYellowDeep.withValues(alpha: 0.25),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.30)
+                : Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Sub-header Institusi Kampus
+          Row(
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: context.softFill,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: context.border, width: 0.6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.account_balance_rounded,
+                        size: 13, color: context.textMuted),
+                    const SizedBox(width: 6),
+                    Text(
+                      'UPI YPTK PADANG',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.6,
+                        color: context.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Nama & NIM Mahasiswa
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.16),
+                  color: AppColors.upiYellowDeep.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.account_balance_wallet_rounded,
-                    color: Colors.white, size: 24),
+                child: const Icon(Icons.school_rounded,
+                    color: AppColors.upiYellowDeep, size: 24),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -291,44 +569,22 @@ class _TagihanTabState extends State<_TagihanTab>
                       namaMhs,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 15,
+                      style: TextStyle(
+                        fontSize: 16,
                         fontWeight: FontWeight.w900,
-                        color: Colors.white,
+                        letterSpacing: -0.3,
+                        color: context.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
-                      '$nimMhs • $prodiMhs',
+                      'NIM: $nimMhs • $prodiMhs',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.white.withValues(alpha: 0.8),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AppColors.green.withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white24),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.verified_rounded,
-                        color: AppColors.amberLight, size: 12),
-                    const SizedBox(width: 4),
-                    Text(
-                      statusMhs,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.amberLight,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w500,
+                        color: context.textMuted,
                       ),
                     ),
                   ],
@@ -337,41 +593,70 @@ class _TagihanTabState extends State<_TagihanTab>
             ],
           ),
           const SizedBox(height: 16),
-          const Divider(height: 1, color: Colors.white24),
-          const SizedBox(height: 12),
+          Divider(height: 1, color: context.border),
+          const SizedBox(height: 14),
 
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.end,
+          // Total Tagihan & Metrik Lunas
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'TOTAL TAGIHAN MAHASISWA',
+                    'TOTAL KEWAJIBAN BIAYA KULIAH',
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.8,
-                      color: Colors.white.withValues(alpha: 0.75),
+                      color: context.textMuted,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    totalNominal,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 7, vertical: 2.5),
+                    decoration: BoxDecoration(
+                      color: AppColors.green.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.verified_rounded,
+                            color: AppColors.green, size: 11),
+                        const SizedBox(width: 4),
+                        Text(
+                          statusMhs,
+                          style: const TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.green,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
-              Row(
+              const SizedBox(height: 6),
+              Text(
+                totalNominal,
+                style: TextStyle(
+                  fontSize: 23,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.5,
+                  color: context.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
                 children: [
-                  _buildMiniStat('Lunas', lunasCount, Colors.white, AppColors.green),
-                  const SizedBox(width: 8),
-                  _buildMiniStat('Perlu Selesai', belumCount, Colors.white, AppColors.orange),
+                  _buildMiniStat('Lunas', lunasCount, AppColors.green),
+                  _buildMiniStat('Belum Selesai', belumCount, AppColors.orange),
+                  if (totalInvoice.isNotEmpty)
+                    _buildMiniStat('Total', totalInvoice, AppColors.upiYellowDeep),
                 ],
               ),
             ],
@@ -381,28 +666,28 @@ class _TagihanTabState extends State<_TagihanTab>
     );
   }
 
-  Widget _buildMiniStat(String label, String count, Color textColor, Color dotColor) {
+  Widget _buildMiniStat(String label, String count, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4.5),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
-          const SizedBox(width: 5),
+          const SizedBox(width: 6),
           Text(
             '$count $label',
             style: TextStyle(
               fontSize: 10.5,
-              fontWeight: FontWeight.bold,
-              color: textColor,
+              fontWeight: FontWeight.w700,
+              color: color,
             ),
           ),
         ],
@@ -411,18 +696,35 @@ class _TagihanTabState extends State<_TagihanTab>
   }
 
   Widget _buildNoticeBanner(String title, String content) {
+    final isDark = context.isDark;
+
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.amber.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.amber.withValues(alpha: 0.35)),
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.30)
+                : Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline_rounded,
-              color: AppColors.upiYellowDeep, size: 18),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.upiYellowDeep.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.info_outline_rounded,
+                color: AppColors.upiYellowDeep, size: 18),
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -431,19 +733,19 @@ class _TagihanTabState extends State<_TagihanTab>
                 if (title.isNotEmpty) ...[
                   Text(
                     title,
-                    style: const TextStyle(
-                      fontSize: 12,
+                    style: TextStyle(
+                      fontSize: 12.5,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF92400E),
+                      color: context.primaryContrast,
                     ),
                   ),
                   const SizedBox(height: 2),
                 ],
                 Text(
                   content,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF78350F),
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: context.textPrimary,
                     height: 1.35,
                   ),
                 ),
@@ -460,7 +762,7 @@ class _TagihanTabState extends State<_TagihanTab>
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _buildChip('all', 'Semua Invoice ($total)'),
+          _buildChip('all', 'Semua ($total)'),
           const SizedBox(width: 8),
           _buildChip('paid', 'Lunas ($lunasCount)'),
           const SizedBox(width: 8),
@@ -472,24 +774,52 @@ class _TagihanTabState extends State<_TagihanTab>
 
   Widget _buildChip(String key, String label) {
     final isSelected = _filterStatus == key;
-    return ChoiceChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: (_) => setState(() => _filterStatus = key),
-      selectedColor: AppColors.upiYellowDeep.withValues(alpha: 0.18),
-      labelStyle: TextStyle(
-        fontSize: 11.5,
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-        color: isSelected ? AppColors.upiYellowDeep : const Color(0xFF475569),
-      ),
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(
-          color: isSelected ? AppColors.upiYellowDeep : const Color(0xFFE2E8F0),
+    final isDark = context.isDark;
+
+    return IosBounceTap(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() => _filterStatus = key);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark ? const Color(0xFF2C2C30) : AppColors.primaryYellow)
+              : context.card,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? (isDark
+                    ? AppColors.primaryYellow.withValues(alpha: 0.5)
+                    : AppColors.upiYellowDeep)
+                : context.border,
+            width: isSelected ? 1.0 : 0.6,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: isSelected
+                  ? (isDark
+                      ? Colors.black.withValues(alpha: 0.35)
+                      : AppColors.primaryYellow.withValues(alpha: 0.30))
+                  : Colors.black.withValues(alpha: isDark ? 0.15 : 0.03),
+              blurRadius: isSelected ? 6 : 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+            color: isSelected
+                ? (isDark ? Colors.white : const Color(0xFF1C1917))
+                : context.textMuted,
+          ),
         ),
       ),
-      showCheckmark: false,
     );
   }
 
@@ -502,145 +832,186 @@ class _TagihanTabState extends State<_TagihanTab>
     final terbit = pickString(inv, ['terbit'], '');
     final status = pickString(inv, ['status'], 'Paid');
     final isPaid = status.toLowerCase() == 'paid' || status.toLowerCase() == 'lunas';
+    final isDark = context.isDark;
 
-    return SurfaceCard(
+    return IosBounceTap(
       onTap: () => _openInvoiceDetail(inv),
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: isPaid
-                      ? AppColors.green.withValues(alpha: 0.12)
-                      : AppColors.orange.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: isDark
+                  ? Colors.black.withValues(alpha: 0.30)
+                  : Colors.black.withValues(alpha: 0.06),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(9),
+                  decoration: BoxDecoration(
+                    color: isPaid
+                        ? AppColors.green.withValues(alpha: 0.14)
+                        : AppColors.upiYellowDeep.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    isPaid ? Icons.check_circle_rounded : Icons.pending_actions_rounded,
+                    color: isPaid ? AppColors.green : AppColors.upiYellowDeep,
+                    size: 22,
+                  ),
                 ),
-                child: Icon(
-                  isPaid ? Icons.check_circle_rounded : Icons.pending_actions_rounded,
-                  color: isPaid ? AppColors.green : AppColors.orange,
-                  size: 20,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        komponen,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: context.textPrimary,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryYellow.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          periodeLabel,
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.upiYellowDeep,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                  decoration: BoxDecoration(
+                    color: isPaid
+                        ? AppColors.green.withValues(alpha: 0.12)
+                        : AppColors.red.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isPaid
+                          ? AppColors.green.withValues(alpha: 0.4)
+                          : AppColors.red.withValues(alpha: 0.4),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Text(
+                    isPaid ? 'Lunas' : 'Belum Lunas',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      color: isPaid ? AppColors.green : AppColors.red,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Divider(height: 1, color: context.border),
+            const SizedBox(height: 10),
+
+            // Nominal & Tanggal
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      komponen,
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w800,
-                        color: context.textPrimary,
-                      ),
+                      'Nominal Tagihan',
+                      style: TextStyle(fontSize: 10.5, color: context.textMuted),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      periodeLabel,
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.upiYellowDeep,
+                      nominal,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.4,
+                        color: context.textPrimary,
                       ),
                     ),
                   ],
                 ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: isPaid
-                      ? AppColors.green.withValues(alpha: 0.10)
-                      : AppColors.red.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: isPaid
-                        ? AppColors.green.withValues(alpha: 0.3)
-                        : AppColors.red.withValues(alpha: 0.3),
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.calendar_today_rounded,
+                            size: 11, color: context.textMuted),
+                        const SizedBox(width: 4),
+                        Text(
+                          terbit.isNotEmpty ? terbit : 'Tempo: $jatuhTempo',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w500,
+                            color: context.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      invoiceId,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.w700,
+                        color: context.textMuted,
+                      ),
+                    ),
+                  ],
                 ),
-                child: Text(
-                  isPaid ? 'Lunas' : 'Belum Lunas',
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            // Detail CTA
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  'Lihat Rincian & VA',
                   style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: isPaid ? AppColors.green : AppColors.red,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                    color: context.primaryContrast,
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-          const SizedBox(height: 10),
-
-          // Nominal & Tanggal
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Nominal Tagihan',
-                    style: TextStyle(fontSize: 10, color: Color(0xFF64748B)),
-                  ),
-                  const SizedBox(height: 1),
-                  Text(
-                    nominal,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF1E293B),
-                    ),
-                  ),
-                ],
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    terbit.isNotEmpty ? terbit : 'Jatuh Tempo: $jatuhTempo',
-                    style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    invoiceId,
-                    style: const TextStyle(
-                      fontSize: 10.5,
-                      fontFamily: 'monospace',
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF475569),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          // Detail CTA
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Text(
-                'Lihat Rincian & VA',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.bold,
-                  color: context.primary,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Icon(Icons.arrow_forward_rounded, size: 14, color: context.primary),
-            ],
-          ),
-        ],
+                const SizedBox(width: 4),
+                Icon(Icons.arrow_forward_rounded,
+                    size: 14, color: context.primaryContrast),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -680,10 +1051,21 @@ class _InvoiceDetailSheetState extends State<_InvoiceDetailSheet> {
       minChildSize: 0.50,
       maxChildSize: 0.95,
       builder: (ctx, scrollCtrl) {
+        final isPaidInitial = pickString(widget.initialInv, ['status'], '').toLowerCase() == 'paid' ||
+            pickString(widget.initialInv, ['status'], '').toLowerCase() == 'lunas';
+
         return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          decoration: BoxDecoration(
+            color: context.card,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            border: Border.all(color: context.border, width: 0.8),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: context.isDark ? 0.45 : 0.12),
+                blurRadius: 24,
+                offset: const Offset(0, -6),
+              ),
+            ],
           ),
           child: FutureBuilder<Map<String, dynamic>>(
             future: _future,
@@ -725,17 +1107,22 @@ class _InvoiceDetailSheetState extends State<_InvoiceDetailSheet> {
               final tglTerbit = pickString(d, ['tanggal_terbit', 'terbit'], '-');
 
               final statusHero = asMap(d['status_hero']);
-              final badgeHero = pickString(statusHero, ['badge'], 'Lunas');
+              final badgeHero = pickString(statusHero, ['badge'], isPaidInitial ? 'Lunas' : 'Belum Lunas');
               final judulHero = pickString(
                 statusHero,
                 ['judul'],
-                'Pembayaran Terverifikasi',
+                isPaidInitial ? 'Pembayaran Terverifikasi' : 'Menunggu Pembayaran',
               );
               final pesanHero = pickString(
                 statusHero,
                 ['pesan'],
-                'Pembayaran Berhasil',
+                isPaidInitial ? 'Pembayaran Berhasil' : 'Silakan selesaikan pembayaran sebelum jatuh tempo.',
               );
+
+              final isPaid = badgeHero.toLowerCase().contains('lunas') ||
+                  badgeHero.toLowerCase().contains('paid') ||
+                  judulHero.toLowerCase().contains('terverifikasi') ||
+                  judulHero.toLowerCase().contains('berhasil');
 
               final mhs = asMap(d['mahasiswa']);
               final mhsNama = pickString(mhs, ['nama'], '-');
@@ -752,10 +1139,10 @@ class _InvoiceDetailSheetState extends State<_InvoiceDetailSheet> {
                   // Handle bar
                   Center(
                     child: Container(
-                      width: 44,
+                      width: 42,
                       height: 4.5,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFCBD5E1),
+                        color: context.isDark ? Colors.white24 : Colors.black12,
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
@@ -769,50 +1156,68 @@ class _InvoiceDetailSheetState extends State<_InvoiceDetailSheet> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Lembar Rincian Invoice',
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: 17,
                               fontWeight: FontWeight.w900,
-                              color: Color(0xFF1E293B),
+                              color: context.textPrimary,
+                              letterSpacing: -0.3,
                             ),
                           ),
+                          const SizedBox(height: 2),
                           Text(
                             invoiceId,
-                            style: const TextStyle(
-                              fontSize: 11,
+                            style: TextStyle(
+                              fontSize: 11.5,
                               fontFamily: 'monospace',
-                              color: Color(0xFF64748B),
+                              fontWeight: FontWeight.w600,
+                              color: context.textMuted,
                             ),
                           ),
                         ],
                       ),
                       IconButton(
                         onPressed: () => Navigator.pop(ctx),
-                        icon: const Icon(Icons.close_rounded, size: 20),
+                        style: IconButton.styleFrom(
+                          backgroundColor: context.softFill,
+                          padding: const EdgeInsets.all(8),
+                          minimumSize: const Size(36, 36),
+                        ),
+                        icon: Icon(Icons.close_rounded, size: 18, color: context.textPrimary),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
 
                   // Hero Status Box
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: AppColors.green.withValues(alpha: 0.10),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.green.withValues(alpha: 0.3)),
+                      color: isPaid
+                          ? AppColors.green.withValues(alpha: 0.12)
+                          : AppColors.red.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isPaid
+                            ? AppColors.green.withValues(alpha: 0.3)
+                            : AppColors.red.withValues(alpha: 0.3),
+                        width: 0.8,
+                      ),
                     ),
                     child: Row(
                       children: [
                         Container(
                           padding: const EdgeInsets.all(8),
-                          decoration: const BoxDecoration(
-                            color: AppColors.green,
+                          decoration: BoxDecoration(
+                            color: isPaid ? AppColors.green : AppColors.red,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.check_rounded,
-                              color: Colors.white, size: 20),
+                          child: Icon(
+                            isPaid ? Icons.check_rounded : Icons.pending_actions_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -823,24 +1228,24 @@ class _InvoiceDetailSheetState extends State<_InvoiceDetailSheet> {
                                 children: [
                                   Text(
                                     judulHero,
-                                    style: const TextStyle(
-                                      fontSize: 13,
+                                    style: TextStyle(
+                                      fontSize: 13.5,
                                       fontWeight: FontWeight.w800,
-                                      color: Color(0xFF166534),
+                                      color: isPaid ? AppColors.green : AppColors.red,
                                     ),
                                   ),
-                                  const SizedBox(width: 6),
+                                  const SizedBox(width: 8),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 1.5),
+                                        horizontal: 7, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: AppColors.green,
+                                      color: isPaid ? AppColors.green : AppColors.red,
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
                                       badgeHero,
                                       style: const TextStyle(
-                                        fontSize: 9.5,
+                                        fontSize: 10,
                                         fontWeight: FontWeight.w900,
                                         color: Colors.white,
                                       ),
@@ -851,9 +1256,9 @@ class _InvoiceDetailSheetState extends State<_InvoiceDetailSheet> {
                               const SizedBox(height: 2),
                               Text(
                                 pesanHero,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11.5,
-                                  color: Color(0xFF15803D),
+                                  color: context.textMuted,
                                 ),
                               ),
                             ],
@@ -864,21 +1269,20 @@ class _InvoiceDetailSheetState extends State<_InvoiceDetailSheet> {
                   ),
                   const SizedBox(height: 14),
 
-                  // Virtual Account Box (BSI)
+                  // Virtual Account Box (BSI) Modern - gaya putih bersih seperti Dashboard
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF1E293B), Color(0xFF334155)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                      color: context.isDark
+                          ? const Color(0xFF1C1C1E)
+                          : Colors.white,
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.12),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
+                          color: Colors.black.withValues(
+                              alpha: context.isDark ? 0.30 : 0.06),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
                         ),
                       ],
                     ),
@@ -888,68 +1292,108 @@ class _InvoiceDetailSheetState extends State<_InvoiceDetailSheet> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'VIRTUAL ACCOUNT ($bank)',
-                              style: const TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.8,
-                                color: AppColors.amberLight,
-                              ),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(7),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.upiYellowDeep
+                                        .withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(9),
+                                  ),
+                                  child: const Icon(Icons.account_balance_rounded,
+                                      color: AppColors.upiYellowDeep, size: 16),
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'VIRTUAL ACCOUNT',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.6,
+                                    color: AppColors.upiYellowDeep,
+                                  ),
+                                ),
+                              ],
                             ),
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
+                                  horizontal: 7, vertical: 2.5),
                               decoration: BoxDecoration(
-                                color: Colors.white12,
+                                color: AppColors.upiYellowDeep
+                                    .withValues(alpha: 0.10),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                'Kode: $kodeBayar',
+                                '$bank • Kode: $kodeBayar',
                                 style: const TextStyle(
                                   fontSize: 10,
-                                  color: Colors.white70,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.upiYellowDeep,
                                 ),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 12),
                         Row(
                           children: [
                             Expanded(
                               child: Text(
                                 va,
-                                style: const TextStyle(
-                                  fontSize: 21,
+                                style: TextStyle(
+                                  fontSize: 22,
                                   fontWeight: FontWeight.w900,
-                                  letterSpacing: 1.2,
+                                  letterSpacing: 1.5,
                                   fontFamily: 'monospace',
-                                  color: Colors.white,
+                                  color: context.textPrimary,
                                 ),
                               ),
                             ),
-                            IconButton.filled(
-                              onPressed: () {
-                                Clipboard.setData(ClipboardData(text: va));
-                                appToast(ctx, 'Nomor VA berhasil disalin.');
+                            IosBounceTap(
+                              onTap: () {
+                                copyText(context, va);
                               },
-                              style: IconButton.styleFrom(
-                                backgroundColor: AppColors.upiYellowDeep,
-                                foregroundColor: Colors.white,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: _yellowHeaderGradient,
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.copy_rounded,
+                                        size: 14, color: Colors.white),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Salin',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              icon: const Icon(Icons.copy_rounded, size: 16),
-                              tooltip: 'Salin Nomor VA',
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 10),
+                        Divider(height: 1, color: context.border),
+                        const SizedBox(height: 8),
                         Text(
                           'ID Transaksi: $idTransaksi',
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 10.5,
                             fontFamily: 'monospace',
-                            color: Colors.white.withValues(alpha: 0.65),
+                            color: context.textMuted,
                           ),
                         ),
                       ],
@@ -989,20 +1433,20 @@ class _InvoiceDetailSheetState extends State<_InvoiceDetailSheet> {
 
                   // Footer Validasi
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      color: context.softFill,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: context.border, width: 0.6),
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
-                        Icon(Icons.shield_outlined, size: 15, color: Color(0xFF64748B)),
-                        SizedBox(width: 8),
+                        Icon(Icons.shield_outlined, size: 16, color: context.primaryContrast),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Data pembayaran resmi bersumber dari sistem Billing UPI YPTK Padang.',
-                            style: TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                            style: TextStyle(fontSize: 10.5, color: context.textMuted),
                           ),
                         ),
                       ],
@@ -1025,31 +1469,45 @@ class _InvoiceDetailSheetState extends State<_InvoiceDetailSheet> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        color: context.card,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: context.isDark ? 0.30 : 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 15, color: AppColors.upiYellowDeep),
-              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: AppColors.upiYellowDeep.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, size: 15, color: AppColors.upiYellowDeep),
+              ),
+              const SizedBox(width: 8),
               Text(
                 title,
-                style: const TextStyle(
-                  fontSize: 12,
+                style: TextStyle(
+                  fontSize: 13,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF1E293B),
+                  color: context.textPrimary,
+                  letterSpacing: -0.2,
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          Divider(height: 1, color: context.border),
           const SizedBox(height: 8),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-          const SizedBox(height: 6),
           ...children,
         ],
       ),
@@ -1063,25 +1521,26 @@ class _InvoiceDetailSheetState extends State<_InvoiceDetailSheet> {
     bool highlight = false,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3.5),
+      padding: const EdgeInsets.symmetric(vertical: 4.5),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          SizedBox(
-            width: 110,
-            child: Text(
-              label,
-              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-            ),
+          Text(
+            label,
+            style: TextStyle(fontSize: 12, color: context.textMuted),
           ),
-          const Text(': ', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-          Expanded(
+          const SizedBox(width: 14),
+          Flexible(
             child: Text(
               value,
+              textAlign: TextAlign.end,
               style: TextStyle(
-                fontSize: 11,
-                fontWeight: isBoldValue ? FontWeight.w900 : FontWeight.w600,
-                color: highlight ? AppColors.upiYellowDeep : const Color(0xFF1E293B),
+                fontSize: 12,
+                fontWeight: (isBoldValue || highlight)
+                    ? FontWeight.w800
+                    : FontWeight.w600,
+                color: highlight ? context.primaryContrast : context.textPrimary,
               ),
             ),
           ),
@@ -1145,6 +1604,13 @@ class _VaTabState extends State<_VaTab> with AutomaticKeepAliveClientMixin {
         final mhs = asMap(data['mahasiswa']);
         final mhsNama = pickString(mhs, ['nama'], 'Mahasiswa');
         final mhsInfo = pickString(mhs, ['info'], '-');
+        final rawVaList = data['va_list'];
+        final List<Map<String, dynamic>> vaList = [];
+        if (rawVaList is List) {
+          for (final item in rawVaList) {
+            if (item is Map) vaList.add(asMap(item));
+          }
+        }
 
         return RefreshIndicator(
           color: AppColors.upiYellowDeep,
@@ -1155,49 +1621,79 @@ class _VaTabState extends State<_VaTab> with AutomaticKeepAliveClientMixin {
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             children: [
-              // Card Mahasiswa & Petunjuk Utama
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+              // Kartu BSI Virtual Account Utama
+              if (vaList.isNotEmpty) ...[
+                for (final v in vaList) ...[
+                  _buildBsiCard(
+                    bank: pickString(v, ['bank'], 'Bank Syariah Indonesia (BSI)'),
+                    vaNumber: pickString(v, ['nomor', 'va'], '-'),
+                    nama: pickString(v, ['nama'], mhsNama),
+                    nominal: pickString(v, ['nominal'], ''),
+                    status: pickString(v, ['status'], ''),
                   ),
-                  borderRadius: BorderRadius.circular(16),
+                  const SizedBox(height: 14),
+                ],
+              ] else ...[
+                _buildBsiCard(
+                  bank: 'Bank Syariah Indonesia (BSI)',
+                  vaNumber: '12${pickString(mhs, ['nim'], '')}',
+                  nama: mhsNama,
+                  nominal: null,
+                  status: 'Aktif',
                 ),
+                const SizedBox(height: 14),
+              ],
+
+              // Card Mahasiswa & Petunjuk Utama
+              SurfaceCard(
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(8),
+                          width: 44,
+                          height: 44,
                           decoration: BoxDecoration(
-                            color: AppColors.upiYellowDeep.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(10),
+                            gradient: const LinearGradient(
+                              colors: [AppColors.amber, AppColors.upiYellowDeep],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.upiYellowDeep.withValues(alpha: 0.25),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                          child: const Icon(Icons.credit_card_rounded,
-                              color: AppColors.amberLight, size: 20),
+                          alignment: Alignment.center,
+                          child: const Icon(Icons.badge_rounded,
+                              color: Colors.white, size: 22),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 mhsNama,
-                                style: const TextStyle(
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: context.textPrimary,
+                                  letterSpacing: -0.2,
                                 ),
                               ),
+                              const SizedBox(height: 2),
                               Text(
                                 mhsInfo,
                                 style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.white.withValues(alpha: 0.75),
+                                  fontSize: 12,
+                                  color: context.textMuted,
                                 ),
                               ),
                             ],
@@ -1206,14 +1702,32 @@ class _VaTabState extends State<_VaTab> with AutomaticKeepAliveClientMixin {
                       ],
                     ),
                     const SizedBox(height: 14),
-                    const Divider(height: 1, color: Colors.white12),
+                    Divider(height: 1, color: context.border),
                     const SizedBox(height: 12),
-                    Text(
-                      catatan,
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        color: AppColors.amberLight,
-                        height: 1.4,
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: context.softFill,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: context.border, width: 0.6),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.info_outline_rounded,
+                              size: 16, color: context.primaryContrast),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              catatan,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: context.textPrimary,
+                                height: 1.45,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -1231,35 +1745,247 @@ class _VaTabState extends State<_VaTab> with AutomaticKeepAliveClientMixin {
     );
   }
 
-  Widget _buildPanduanCard() {
+  // Kartu Virtual Account bergaya bersih seperti Dashboard: putih, rounded 16, shadow halus.
+  Widget _buildBsiCard({
+    required String bank,
+    required String vaNumber,
+    required String nama,
+    String? nominal,
+    String? status,
+  }) {
+    final isDark = context.isDark;
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.30)
+                : Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          // Row 1: Header Bank + Chip
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.upiYellowDeep.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.account_balance_rounded,
+                      size: 18,
+                      color: AppColors.upiYellowDeep,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    bank.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.5,
+                      color: AppColors.upiYellowDeep,
+                    ),
+                  ),
+                ],
+              ),
+              // EMV Chip
+              Container(
+                width: 32,
+                height: 22,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(4),
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color(0xFFFFDF73),
+                      Color(0xFFD4AF37),
+                      Color(0xFFA67C1E),
+                    ],
+                  ),
+                ),
+                child: Center(
+                  child: Container(
+                    width: 18,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        width: 0.5,
+                      ),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+
+          // Row 2: Nomor Virtual Account Monospace + Salin Button
+          Text(
+            'NOMOR VIRTUAL ACCOUNT',
+            style: TextStyle(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
+              color: context.textMuted,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  vaNumber,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.8,
+                    color: context.textPrimary,
+                  ),
+                ),
+              ),
+              IosBounceTap(
+                onTap: () {
+                  copyText(context, vaNumber, 'Nomor VA berhasil disalin!');
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: _yellowHeaderGradient,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.copy_rounded, size: 12, color: Colors.white),
+                      SizedBox(width: 5),
+                      Text(
+                        'Salin',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Divider(height: 1, color: context.border),
+          const SizedBox(height: 12),
+
+          // Row 3: Nama Mahasiswa & Kode Institusi
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ATAS NAMA',
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                        color: context.textMuted,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      nama.toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.2,
+                        color: context.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.upiYellowDeep.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  'Kode: 12 (UPI YPTK)',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.upiYellowDeep,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPanduanCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: context.card,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: context.isDark ? 0.30 : 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
               Icon(Icons.help_outline_rounded,
-                  size: 16, color: AppColors.upiYellowDeep),
-              SizedBox(width: 6),
+                  size: 16, color: context.primaryContrast),
+              const SizedBox(width: 8),
               Text(
                 'Panduan Pembayaran Virtual Account',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF1E293B),
+                  color: context.textPrimary,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 10),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-          const SizedBox(height: 10),
+          Divider(height: 1, color: context.border),
+          const SizedBox(height: 12),
 
           _buildStepItem(
             '1',
@@ -1297,15 +2023,15 @@ class _VaTabState extends State<_VaTab> with AutomaticKeepAliveClientMixin {
             height: 22,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: AppColors.upiYellowDeep.withValues(alpha: 0.12),
+              color: AppColors.primaryYellow.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
             child: Text(
               step,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w900,
-                color: AppColors.upiYellowDeep,
+                color: context.primaryContrast,
               ),
             ),
           ),
@@ -1316,18 +2042,18 @@ class _VaTabState extends State<_VaTab> with AutomaticKeepAliveClientMixin {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF1E293B),
+                    color: context.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   desc,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
-                    color: Color(0xFF64748B),
+                    color: context.textMuted,
                     height: 1.3,
                   ),
                 ),
@@ -1443,102 +2169,125 @@ class _RiwayatTabState extends State<_RiwayatTab>
               final invoiceInfo = pickString(it, ['invoice_info'], '-');
               final status = pickString(it, ['status'], 'Paid');
               final isPaid = status.toLowerCase() == 'paid' || status.toLowerCase() == 'lunas';
+              final isDark = context.isDark;
 
-              return Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.green.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
+              return IosBounceTap(
+                onTap: () {
+                  copyText(context, '$komponen: $nominal ($invoiceInfo)', 'Data transaksi disalin');
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(15),
+                  decoration: BoxDecoration(
+                    color: context.card,
+                    borderRadius: BorderRadius.circular(16),
+                    border: isDark
+                        ? Border.all(
+                            color: AppColors.green.withValues(alpha: 0.25),
+                            width: 0.8,
+                          )
+                        : null,
+                    boxShadow: [
+                      BoxShadow(
+                        color: isDark
+                            ? Colors.black.withValues(alpha: 0.30)
+                            : Colors.black.withValues(alpha: 0.06),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
                       ),
-                      child: const Icon(Icons.check_circle_rounded,
-                          color: AppColors.green, size: 20),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    ],
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(9),
+                        decoration: BoxDecoration(
+                          color: AppColors.green.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.check_circle_rounded,
+                            color: AppColors.green, size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              komponen,
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w800,
+                                color: context.textPrimary,
+                                letterSpacing: -0.2,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: AppColors.primaryYellow.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                              child: Text(
+                                periode,
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.upiYellowDeep,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              invoiceInfo,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontFamily: 'monospace',
+                                color: context.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            komponen,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF1E293B),
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            periode,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.upiYellowDeep,
+                            nominal,
+                            style: TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.3,
+                              color: context.textPrimary,
                             ),
                           ),
                           const SizedBox(height: 4),
-                          Text(
-                            invoiceInfo,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontFamily: 'monospace',
-                              color: Color(0xFF64748B),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                            decoration: BoxDecoration(
+                              color: isPaid
+                                  ? AppColors.green.withValues(alpha: 0.12)
+                                  : AppColors.red.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              isPaid ? 'Lunas' : status,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: isPaid ? AppColors.green : AppColors.red,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          nominal,
-                          style: const TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF1E293B),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: isPaid
-                                ? AppColors.green.withValues(alpha: 0.10)
-                                : AppColors.red.withValues(alpha: 0.10),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            isPaid ? 'Lunas' : status,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: isPaid ? AppColors.green : AppColors.red,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               );
             },
@@ -1633,12 +2382,12 @@ class _StatusTabState extends State<_StatusTab>
               ),
               const SizedBox(height: 16),
 
-              const Text(
+              Text(
                 'Status Keuangan per Periode',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF1E293B),
+                  color: context.textPrimary,
                 ),
               ),
               const SizedBox(height: 10),
@@ -1667,30 +2416,44 @@ class _StatusTabState extends State<_StatusTab>
   }
 
   Widget _buildMetricCard(String label, String val, IconData icon, Color color) {
+    final isDark = context.isDark;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        color: context.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: color.withValues(alpha: 0.3),
+          width: 0.8,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.30)
+                : color.withValues(alpha: 0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
       child: Column(
         children: [
-          Icon(icon, size: 18, color: color),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.14),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 16, color: color),
+          ),
           const SizedBox(height: 6),
           Text(
             val,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w900,
-              color: Color(0xFF1E293B),
+              color: context.textPrimary,
             ),
           ),
           const SizedBox(height: 2),
@@ -1699,7 +2462,11 @@ class _StatusTabState extends State<_StatusTab>
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+            style: TextStyle(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w600,
+              color: context.textMuted,
+            ),
           ),
         ],
       ),
@@ -1710,18 +2477,24 @@ class _StatusTabState extends State<_StatusTab>
     final status = pickString(st, ['status'], 'Biaya Kuliah Per Semester');
     final periodeInfo = pickString(st, ['periode'], '-');
     final keterangan = pickString(st, ['keterangan'], '-');
+    final isDark = context.isDark;
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        color: context.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.green.withValues(alpha: 0.25),
+          width: 0.8,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.30)
+                : Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -1731,44 +2504,58 @@ class _StatusTabState extends State<_StatusTab>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                keterangan,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF1E293B),
+              Expanded(
+                child: Text(
+                  keterangan,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                    color: context.textPrimary,
+                    letterSpacing: -0.2,
+                  ),
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: AppColors.green.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AppColors.green.withValues(alpha: 0.4),
+                    width: 0.8,
+                  ),
                 ),
                 child: const Text(
                   'Lunas',
                   style: TextStyle(
                     fontSize: 10.5,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w800,
                     color: AppColors.green,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
             status,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+            style: TextStyle(fontSize: 12, color: context.textMuted),
           ),
-          const SizedBox(height: 4),
-          Text(
-            periodeInfo,
-            style: const TextStyle(
-              fontSize: 10.5,
-              fontFamily: 'monospace',
-              color: Color(0xFF94A3B8),
-            ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Icon(Icons.schedule_rounded, size: 12, color: AppColors.upiYellowDeep),
+              const SizedBox(width: 5),
+              Text(
+                periodeInfo,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontFamily: 'monospace',
+                  fontWeight: FontWeight.w600,
+                  color: context.textMuted,
+                ),
+              ),
+            ],
           ),
         ],
       ),
