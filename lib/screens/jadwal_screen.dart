@@ -527,14 +527,14 @@ class _JadwalScreenState extends State<JadwalScreen> {
         '/api/notifications/test',
         body: {
           'nim': auth.nim,
-          'title': '🔔 Uji Coba Pengingat Kuliah',
-          'message': 'Halo ${auth.nama}! Notifikasi pengingat perkuliahan aktif 15 menit sebelum jam kuliah.',
+          'broadcast': true,
         },
       );
       if (res['success'] == true) {
+        final matkul = res['matkul_terpilih'] ?? 'Mata Kuliah';
         messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Notifikasi uji coba berhasil dikirim ke server OneSignal!'),
+          SnackBar(
+            content: Text('Notifikasi dikirim: ⏰ 15 Menit Lagi: $matkul'),
             backgroundColor: AppColors.green,
           ),
         );
