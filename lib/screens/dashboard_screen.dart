@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../services/api_client.dart';
 import '../services/dashboard_service.dart';
+import '../services/notification_service.dart';
 import '../state/auth_provider.dart';
 import '../state/periode_provider.dart';
 import '../theme/app_theme.dart';
@@ -102,9 +103,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   ];
 
   Future<Map<String, dynamic>> _dashboard() async {
+    final api = context.read<ApiClient>();
+    final auth = context.read<AuthProvider>();
+    final nim = auth.nim;
+
     Map<String, dynamic> data = {};
     try {
-      final api = context.read<ApiClient>();
       final resp = await DashboardService(api).getDashboard();
       final raw = resp is Map ? (resp['data'] ?? resp) : resp;
       data = asMap(raw);
@@ -126,6 +130,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     } catch (_) {
       // Abaikan: dashboard tetap tampil walau jadwal gagal dimuat.
+    }
+
+    // Otomatis sinkronisasi jadwal lengkap ke server untuk pengingat 15 menit
+    if (nim != '-') {
+      NotificationService.instance.ensureJadwalSynced(api, nim);
     }
 
     return data;

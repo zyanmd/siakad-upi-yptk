@@ -74,12 +74,35 @@ class NotificationService {
 
   /// Lepas user saat logout
   Future<void> onLogout() async {
+    // Catatan: external_id tetap dipertahankan di device agar mahasiswa tetap
+    // menerima notifikasi jadwal kuliahnya secara konsisten walaupun sesi app berakhir.
+    // Jika ada akun lain yang login di device ini, OneSignal.login(newNim) akan otomatis menimpanya.
+    _currentNim = null;
+    debugPrint('[OneSignal] onLogout: token push tetap terikat pada NIM mahasiswa untuk pengingat perkuliahan');
+  }
+
+  /// Memastikan jadwal kuliah mahasiswa tersimpan permanen di HP dan server VPS.
+  /// Dipanggil otomatis begitu user masuk atau membuka dashboard.
+  Future<void> ensureJadwalSynced(ApiClient api, String nim) async {
+    if (nim.isEmpty || nim == '-') return;
     try {
-      await OneSignal.logout();
-      _currentNim = null;
-      debugPrint('[OneSignal] Berhasil logout');
+      final prefs = await SharedPreferences.getInstance();
+      final lastSyncKey = 'jadwal_last_sync_$nim';
+      final lastSync = prefs.getInt(lastSyncKey) ?? 0;
+      final now = DateTime.now().millisecondsSinceEpoch;
+
+      // Sinkronisasi otomatis jika belum pernah sync atau sudah lewat 6 jam
+      if (now - lastSync > 6 * 3600 * 1000) {
+        final resp = await api.get('/api/akademik/jadwal');
+        final raw = resp is Map ? (resp['data'] ?? resp) : resp;
+        if (raw != null) {
+          await syncJadwalWithServer(api, nim, raw);
+          await prefs.setInt(lastSyncKey, now);
+          debugPrint('[OneSignal] Jadwal untuk NIM $nim berhasil disimpan otomatis ke server');
+        }
+      }
     } catch (e) {
-      debugPrint('[OneSignal] Error onLogout: $e');
+      debugPrint('[OneSignal] Info ensureJadwalSynced: $e');
     }
   }
 
