@@ -148,7 +148,7 @@ class _MateriScreenState extends State<MateriScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final isDark = context.isDark;
-    final bg = isDark ? const Color(0xFF000000) : const Color(0xFFF9FAFB);
+    final bg = context.bg;
 
     final metrics = asMap(_cachedData?['metrics']);
     final totalMateri = pickString(metrics, ['total_materi'], '');
@@ -204,7 +204,7 @@ class _MateriScreenState extends State<MateriScreen> {
                 return RefreshIndicator(
                   color: AppColors.upiYellowDeep,
                   backgroundColor:
-                      isDark ? const Color(0xFF1E1E22) : Colors.white,
+                      context.card,
                   onRefresh: () async {
                     _reload();
                     await _future;
@@ -432,7 +432,7 @@ class _MateriScreenState extends State<MateriScreen> {
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E1E22) : Colors.white,
+          color: context.card,
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
@@ -473,10 +473,10 @@ class _MateriScreenState extends State<MateriScreen> {
     final content = Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: context.card,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF1F5F9),
+          color: context.border,
           width: 1.2,
         ),
         boxShadow: [
@@ -761,14 +761,13 @@ class _MateriScreenState extends State<MateriScreen> {
     required IconData icon,
     required Color color,
   }) {
-    final isDark = context.isDark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF222226) : const Color(0xFFF8FAFC),
+        color: context.softFill,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isDark ? const Color(0xFF2E2E32) : const Color(0xFFE2E8F0),
+          color: context.border,
         ),
       ),
       child: Column(
@@ -812,10 +811,10 @@ class _MateriScreenState extends State<MateriScreen> {
     final isDark = context.isDark;
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: context.card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE2E8F0),
+          color: context.border,
           width: 1.2,
         ),
         boxShadow: [
@@ -1332,10 +1331,10 @@ class _MateriKelasPageState extends State<MateriKelasPage> {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: context.card,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF1F5F9),
+          color: context.border,
           width: 1.2,
         ),
         boxShadow: [
@@ -1360,8 +1359,7 @@ class _MateriKelasPageState extends State<MateriKelasPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = context.isDark;
-    final bg = isDark ? const Color(0xFF000000) : const Color(0xFFF9FAFB);
+    final bg = context.bg;
 
     return Scaffold(
       backgroundColor: bg,
@@ -1396,7 +1394,7 @@ class _MateriKelasPageState extends State<MateriKelasPage> {
                 return RefreshIndicator(
                   color: AppColors.upiYellowDeep,
                   backgroundColor:
-                      isDark ? const Color(0xFF1E1E22) : Colors.white,
+                      context.card,
                   onRefresh: () async {
                     _reload();
                     await _future;

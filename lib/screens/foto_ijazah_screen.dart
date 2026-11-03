@@ -654,7 +654,7 @@ class _FotoIjazahScreenState extends State<FotoIjazahScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: context.card,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -797,7 +797,7 @@ class _FotoIjazahScreenState extends State<FotoIjazahScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: context.card,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(

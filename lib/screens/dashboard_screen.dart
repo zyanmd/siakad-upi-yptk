@@ -32,14 +32,13 @@ import 'transkrip_screen.dart';
 // ═══════════════════════════════════════════════════════════════════
 
 class Neu {
-  static Color bg(BuildContext context) =>
-      context.isDark ? const Color(0xFF19191D) : const Color(0xFFE8EBF3);
+  static Color bg(BuildContext context) => context.bg;
 
   static Color light(BuildContext context) =>
-      context.isDark ? const Color(0xFF26262E) : Colors.white;
+      context.isDark ? const Color(0xFF26262A) : Colors.white;
 
   static Color dark(BuildContext context) =>
-      context.isDark ? const Color(0xFF0C0C0E) : const Color(0xFFCAD0DE);
+      context.isDark ? const Color(0xFF161618) : const Color(0xFFCAD0DE);
 
   /// Shadow timbul ganda khas Neumorphic (soft light di atas-kiri, shadow di bawah-kanan)
   static List<BoxShadow> convex(BuildContext context,
@@ -64,7 +63,7 @@ class Neu {
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
       colors: context.isDark
-          ? [const Color(0xFF222228), const Color(0xFF18181C)]
+          ? [context.elevatedCard, context.card]
           : [const Color(0xFFEFF2F9), const Color(0xFFE0E5EF)],
     );
   }
@@ -234,8 +233,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-    final isDark = context.isDark;
-    final bg = isDark ? const Color(0xFF000000) : const Color(0xFFF9FAFB);
+    final bg = context.bg;
 
     return Scaffold(
       backgroundColor: bg,
@@ -573,7 +571,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         margin: const EdgeInsets.symmetric(horizontal: 14),
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+          color: context.card,
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
@@ -1081,7 +1079,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: context.card,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -1380,10 +1378,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+          color: context.card,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE2E8F0),
+            color: context.border,
             width: 1.2,
           ),
           boxShadow: [
@@ -1545,7 +1543,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 width: 52,
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
-                  color: context.isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                  color: context.card,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
@@ -1587,7 +1585,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: context.isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                    color: context.card,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
@@ -1656,7 +1654,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 width: 52,
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
-                  color: context.isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                  color: context.card,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
@@ -2191,7 +2189,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: context.isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                color: context.card,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
@@ -2260,7 +2258,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: context.card,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(

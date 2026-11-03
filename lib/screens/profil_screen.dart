@@ -73,7 +73,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final isDark = context.isDark;
-    final bg = isDark ? const Color(0xFF000000) : const Color(0xFFF9FAFB);
+    final bg = context.bg;
 
     return Scaffold(
       backgroundColor: bg,
@@ -823,7 +823,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
     final isDark = context.isDark;
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: context.card,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(

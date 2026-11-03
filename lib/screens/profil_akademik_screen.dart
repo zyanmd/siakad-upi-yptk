@@ -92,7 +92,7 @@ class _ProfilAkademikScreenState extends State<ProfilAkademikScreen>
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final isDark = context.isDark;
-    final bg = isDark ? const Color(0xFF000000) : const Color(0xFFF9FAFB);
+    final bg = context.bg;
 
     final identitas = asMap(_data?['identitas']);
     final akademik = asMap(_data?['akademik']);
@@ -425,7 +425,7 @@ class _ProfilAkademikScreenState extends State<ProfilAkademikScreen>
         margin: const EdgeInsets.symmetric(horizontal: 14),
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E1E22) : Colors.white,
+          color: context.card,
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
@@ -527,10 +527,10 @@ class _ProfilAkademikScreenState extends State<ProfilAkademikScreen>
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: context.card,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF1F5F9),
+          color: context.border,
           width: 1.2,
         ),
         boxShadow: [
@@ -564,10 +564,10 @@ class _ProfilAkademikScreenState extends State<ProfilAkademikScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: context.card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF1F5F9),
+          color: context.border,
           width: 1.2,
         ),
         boxShadow: [

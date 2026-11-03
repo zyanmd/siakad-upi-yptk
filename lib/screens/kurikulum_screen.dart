@@ -60,8 +60,7 @@ class _KurikulumScreenState extends State<KurikulumScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = context.isDark;
-    final bg = isDark ? const Color(0xFF000000) : const Color(0xFFF9FAFB);
+    final bg = context.bg;
 
     final previewMap = _normalizeKurikulumData(_cachedData);
     final info = asMap(previewMap['info']);
@@ -107,7 +106,7 @@ class _KurikulumScreenState extends State<KurikulumScreen> {
                 return RefreshIndicator(
                   color: AppColors.upiYellowDeep,
                   backgroundColor:
-                      isDark ? const Color(0xFF1E1E22) : Colors.white,
+                      context.card,
                   onRefresh: () async {
                     _reload();
                     await _future;
@@ -312,10 +311,10 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
     final content = Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: context.card,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF1F5F9),
+          color: context.border,
           width: 1.2,
         ),
         boxShadow: [
@@ -802,14 +801,13 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
     required IconData icon,
     required Color color,
   }) {
-    final isDark = context.isDark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF222226) : const Color(0xFFF8FAFC),
+        color: context.softFill,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isDark ? const Color(0xFF2E2E32) : const Color(0xFFE2E8F0),
+          color: context.border,
         ),
       ),
       child: Column(
@@ -847,10 +845,10 @@ class _KurikulumDetailViewState extends State<KurikulumDetailView> {
     final isDark = context.isDark;
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: context.card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE2E8F0),
+          color: context.border,
           width: 1.2,
         ),
         boxShadow: [

@@ -33,7 +33,7 @@ class _TagihanScreenState extends State<TagihanScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final isDark = context.isDark;
-    final bg = isDark ? const Color(0xFF000000) : const Color(0xFFF9FAFB);
+    final bg = context.bg;
 
     return DefaultTabController(
       length: 4,
@@ -265,7 +265,7 @@ class _TagihanScreenState extends State<TagihanScreen> {
         margin: const EdgeInsets.symmetric(horizontal: 14),
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+          color: context.card,
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
@@ -497,7 +497,7 @@ class _TagihanTabState extends State<_TagihanTab>
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: context.card,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -701,7 +701,7 @@ class _TagihanTabState extends State<_TagihanTab>
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: context.card,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -840,7 +840,7 @@ class _TagihanTabState extends State<_TagihanTab>
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+          color: context.card,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
@@ -1757,7 +1757,7 @@ class _VaTabState extends State<_VaTab> with AutomaticKeepAliveClientMixin {
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: context.card,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(

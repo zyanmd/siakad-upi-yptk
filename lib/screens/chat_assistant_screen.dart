@@ -445,10 +445,10 @@ class _ChatAssistantScreenState extends State<ChatAssistantScreen> {
     final content = Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: context.card,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF1F5F9),
+          color: context.border,
           width: 1.2,
         ),
         boxShadow: [
@@ -479,7 +479,7 @@ class _ChatAssistantScreenState extends State<ChatAssistantScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = context.isDark;
-    final bg = isDark ? const Color(0xFF000000) : const Color(0xFFF9FAFB);
+    final bg = context.bg;
 
     final routingLabel = pickString(_state, ['routing_label'], 'AI Assistant');
     final isAi = pickString(_state, ['routing_channel'], 'ai') == 'ai';
@@ -793,7 +793,7 @@ class _ChatAssistantScreenState extends State<ChatAssistantScreen> {
           margin: const EdgeInsets.symmetric(horizontal: 20),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E1E22) : Colors.white,
+            color: context.card,
             borderRadius: BorderRadius.circular(30),
             boxShadow: [
               BoxShadow(
@@ -1182,14 +1182,13 @@ class _ChatAssistantScreenState extends State<ChatAssistantScreen> {
   }
 
   Widget _buildInputBar() {
-    final isDark = context.isDark;
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF141416) : Colors.white,
+        color: context.card,
         border: Border(
           top: BorderSide(
-            color: isDark ? const Color(0xFF222226) : const Color(0xFFE2E8F0),
+            color: context.border,
             width: 0.8,
           ),
         ),
@@ -1205,10 +1204,10 @@ class _ChatAssistantScreenState extends State<ChatAssistantScreen> {
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E1E22) : const Color(0xFFF1F5F9),
+                color: context.softFill,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                  color: isDark ? const Color(0xFF2E2E32) : const Color(0xFFE2E8F0),
+                  color: context.border,
                 ),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 16),

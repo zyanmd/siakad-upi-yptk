@@ -393,7 +393,7 @@ class _KhsScreenState extends State<KhsScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final isDark = context.isDark;
-    final bg = isDark ? const Color(0xFF000000) : const Color(0xFFF9FAFB);
+    final bg = context.bg;
 
     final rawPayload = asMap(_cachedData?['data']);
     final summary = asMap(rawPayload['summary']);
@@ -449,7 +449,7 @@ class _KhsScreenState extends State<KhsScreen> {
                 return RefreshIndicator(
                   color: AppColors.upiYellowDeep,
                   backgroundColor:
-                      isDark ? const Color(0xFF1E1E22) : Colors.white,
+                      context.card,
                   onRefresh: () async {
                     _reload();
                     await _future;
@@ -681,7 +681,7 @@ class _KhsScreenState extends State<KhsScreen> {
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E1E22) : Colors.white,
+          color: context.card,
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
@@ -736,10 +736,10 @@ class _KhsScreenState extends State<KhsScreen> {
     final content = Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: context.card,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF1F5F9),
+          color: context.border,
           width: 1.2,
         ),
         boxShadow: [
@@ -1443,7 +1443,7 @@ class _KhsScreenState extends State<KhsScreen> {
         decoration: BoxDecoration(
           color: selected
               ? activeColor.withValues(alpha: 0.14)
-              : (context.isDark ? const Color(0xFF1C1C1E) : Colors.white),
+              : (context.card),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: selected

@@ -441,7 +441,7 @@ class _KartuQrCodeWisudaScreenState extends State<KartuQrCodeWisudaScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           decoration: BoxDecoration(
-                            color: context.isDark ? const Color(0xFF1E293B) : Colors.white,
+                            color: context.card,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
                               color: context.isDark ? Colors.white12 : const Color(0xFFE2E8F0),
@@ -562,7 +562,7 @@ class _KartuQrCodeWisudaScreenState extends State<KartuQrCodeWisudaScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: context.card,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: AppColors.upiYellowDeep.withValues(alpha: 0.35),
@@ -987,7 +987,7 @@ class _KartuQrCodeWisudaScreenState extends State<KartuQrCodeWisudaScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: context.card,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
@@ -1200,7 +1200,7 @@ class _KartuQrCodeWisudaScreenState extends State<KartuQrCodeWisudaScreen> {
     final isDark = context.isDark;
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: context.card,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(

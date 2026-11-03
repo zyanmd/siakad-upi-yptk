@@ -148,13 +148,11 @@ class _MainShellState extends State<MainShell> {
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   decoration: BoxDecoration(
                     color: isDark
-                        ? const Color(0xD91C1917)
+                        ? const Color(0xE61C1C1E)
                         : Colors.white.withValues(alpha: 0.85),
                     borderRadius: BorderRadius.circular(36),
                     border: Border.all(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.12)
-                          : Colors.black.withValues(alpha: 0.06),
+                      color: context.border,
                       width: 1.2,
                     ),
                   ),

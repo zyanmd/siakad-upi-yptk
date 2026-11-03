@@ -710,7 +710,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
     final isDark = context.isDark;
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: context.card,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -835,7 +835,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
     final isDark = context.isDark;
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: context.card,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -936,7 +936,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: context.card,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(

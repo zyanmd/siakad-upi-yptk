@@ -301,7 +301,7 @@ class _KalenderScreenState extends State<KalenderScreen> {
     final content = Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: context.card,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -325,7 +325,7 @@ class _KalenderScreenState extends State<KalenderScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = context.isDark;
-    final bg = isDark ? const Color(0xFF000000) : const Color(0xFFF9FAFB);
+    final bg = context.bg;
 
     // Dapatkan opsi tahun dari cached data jika ada
     final filterObj = asMap(_cachedData?['filter']);
@@ -391,7 +391,7 @@ class _KalenderScreenState extends State<KalenderScreen> {
                 return RefreshIndicator(
                   color: AppColors.upiYellowDeep,
                   backgroundColor:
-                      isDark ? const Color(0xFF1E1E22) : Colors.white,
+                      context.card,
                   onRefresh: () async {
                     _reload();
                     await _future;
@@ -590,7 +590,7 @@ class _KalenderScreenState extends State<KalenderScreen> {
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E1E22) : Colors.white,
+          color: context.card,
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
@@ -1100,7 +1100,7 @@ class _KalenderScreenState extends State<KalenderScreen> {
         decoration: BoxDecoration(
           color: isSelected
               ? AppColors.upiYellowDeep.withValues(alpha: 0.14)
-              : (context.isDark ? const Color(0xFF1C1C1E) : Colors.white),
+              : (context.card),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected

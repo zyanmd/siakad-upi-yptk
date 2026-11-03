@@ -169,10 +169,10 @@ class _SmartDetailPageState extends State<SmartDetailPage> {
     final content = Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+        color: context.card,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF1F5F9),
+          color: context.border,
           width: 1.2,
         ),
         boxShadow: [
@@ -202,8 +202,7 @@ class _SmartDetailPageState extends State<SmartDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = context.isDark;
-    final bg = isDark ? const Color(0xFF000000) : const Color(0xFFF9FAFB);
+    final bg = context.bg;
 
     final mergedPreview = _extractMergedData(_cachedData ?? widget.initialData ?? {});
 
@@ -243,7 +242,7 @@ class _SmartDetailPageState extends State<SmartDetailPage> {
                 return RefreshIndicator(
                   color: AppColors.upiYellowDeep,
                   backgroundColor:
-                      isDark ? const Color(0xFF1E1E22) : Colors.white,
+                      context.card,
                   onRefresh: () async {
                     _reload();
                     await _future;
