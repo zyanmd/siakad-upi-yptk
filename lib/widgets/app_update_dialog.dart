@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show MethodChannel;
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -135,7 +136,31 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
     }
   }
 
+  static const MethodChannel _installerChannel =
+      MethodChannel('com.upi.yptk/installer');
+
   Future<void> _installApk(String path) async {
+    try {
+      final status = await _installerChannel.invokeMethod<String>(
+        'installApk',
+        {'filePath': path},
+      );
+      if (status == 'REQUEST_PERMISSION' && mounted) {
+        setState(() {
+          _statusText =
+              'Izinkan "Pasang aplikasi tidak dikenal" di Pengaturan, lalu ketuk "Pasang Sekarang" lagi.';
+        });
+        return;
+      } else if (status == 'SUCCESS' && mounted) {
+        setState(() {
+          _statusText = 'Membuka pemasang paket Android...';
+        });
+        return;
+      }
+    } catch (e) {
+      debugPrint('[UpdateDialog] Native installer error: $e, using OpenFilex fallback');
+    }
+
     try {
       final result = await OpenFilex.open(
         path,
@@ -143,7 +168,7 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
       );
       if (result.type != ResultType.done && mounted) {
         setState(() {
-          _statusText = 'Ketuk "Pasang Sekarang" untuk melanjutkan.';
+          _statusText = 'Ketuk "Pasang Sekarang" untuk mencoba lagi.';
         });
       }
     } catch (e) {
