@@ -6,6 +6,8 @@ import '../services/session_store.dart';
 import '../state/auth_provider.dart';
 import '../state/theme_provider.dart';
 import '../theme/app_theme.dart';
+import '../state/app_update_provider.dart';
+import '../widgets/app_update_banner.dart';
 
 /// Halaman login bersih, rapi, dan modern.
 class LoginScreen extends StatefulWidget {
@@ -30,6 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (store.usernameCached.isNotEmpty) {
         _nimCtrl.text = store.usernameCached;
       }
+      context.read<AppUpdateProvider>().maybeCheck();
       final auth = context.read<AuthProvider>();
       if (auth.expired) {
         setState(() => _error = 'Sesi Anda berakhir. Silakan masuk kembali.');
@@ -221,6 +224,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
 
                       const SizedBox(height: 36),
+
+                      // Banner Pembaruan Aplikasi (bila tersedia update)
+                      const AppUpdateBanner(),
 
                       // Banner Peringatan Sesi Kedaluwarsa
                       Builder(builder: (ctx) {

@@ -19,8 +19,14 @@ class AppUpdateProvider extends ChangeNotifier {
   /// Versi cadangan bila `PackageInfo` gagal dibaca di perangkat.
   static const _fallbackVersion = '1.0.1';
 
-  /// Info update terakhir yang perlu ditampilkan, atau null bila tidak ada.
+  /// Info update terakhir yang perlu ditampilkan lewat pop up dialog, atau null bila tidak ada.
   AppUpdateInfo? pending;
+
+  /// Info update yang tersedia untuk banner di halaman depan (tetap tersimpan walau pop up ditutup).
+  AppUpdateInfo? availableUpdate;
+
+  bool _bannerDismissed = false;
+  bool get hasUpdateBanner => availableUpdate != null && !_bannerDismissed;
 
   bool _checking = false;
   bool get checking => _checking;
@@ -53,9 +59,15 @@ class AppUpdateProvider extends ChangeNotifier {
       // Hanya tampilkan bila latest lebih tinggi dari versi aplikasi.
       if (AppUpdateInfo.compareVersion(info.latestVersion, current) <= 0) {
         pending = null;
+        availableUpdate = null;
         notifyListeners();
         return;
       }
+
+      if (availableUpdate?.latestVersion != info.latestVersion) {
+        _bannerDismissed = false;
+      }
+      availableUpdate = info;
 
       switch (info.status) {
         case AppUpdateStatus.force:
@@ -68,9 +80,12 @@ class AppUpdateProvider extends ChangeNotifier {
           if (skipped != info.latestVersion) {
             pending = info;
             notifyListeners();
+          } else {
+            notifyListeners();
           }
           break;
         case AppUpdateStatus.ok:
+          notifyListeners();
           break;
       }
     } catch (_) {
@@ -78,6 +93,12 @@ class AppUpdateProvider extends ChangeNotifier {
     } finally {
       _checking = false;
     }
+  }
+
+  /// Tutup banner pembaruan di halaman depan untuk sesi ini.
+  void dismissBanner() {
+    _bannerDismissed = true;
+    notifyListeners();
   }
 
   /// Tandai pop up (opsional) sebagai ditunda agar tidak muncul lagi untuk
@@ -121,6 +142,9 @@ class AppUpdateProvider extends ChangeNotifier {
     try {
       if (Platform.isAndroid) return 'android';
       if (Platform.isIOS) return 'ios';
+      if (Platform.isWindows) return 'windows';
+      if (Platform.isMacOS) return 'macos';
+      if (Platform.isLinux) return 'linux';
     } catch (_) {}
     return null;
   }

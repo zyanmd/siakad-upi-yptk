@@ -7,6 +7,8 @@ import '../services/dashboard_service.dart';
 import '../services/notification_service.dart';
 import '../state/auth_provider.dart';
 import '../state/periode_provider.dart';
+import '../state/app_update_provider.dart';
+import '../widgets/app_update_banner.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_strings.dart';
 import '../utils/format.dart';
@@ -242,6 +244,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         backgroundColor: bg,
         onRefresh: () async {
           setState(() => _tick++);
+          context.read<AppUpdateProvider>().maybeCheck(force: true);
         },
         child: ListView(
           padding: EdgeInsets.zero,
@@ -281,6 +284,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Banner Pembaruan Aplikasi di Halaman Depan
+                        const AppUpdateBanner(),
                         if (isLoading)
                           const Padding(
                             padding: EdgeInsets.only(bottom: 14),

@@ -1,7 +1,7 @@
 name: siakad_app
 description: "Aplikasi SIAKAD Kampus modern (Flutter) - terhubung ke SIAKAD UPI YPTK Scraper API."
 publish_to: "none"
-version: 1.0.3+4
+version: 1.0.4+5
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -24,6 +24,8 @@ dependencies:
   timeline_tile: ^2.0.0
   package_info_plus: ^8.1.2
   onesignal_flutter: ^5.2.8
+  path_provider: ^2.1.6
+  open_filex: ^5.0.0
 
 dev_dependencies:
   flutter_test:
