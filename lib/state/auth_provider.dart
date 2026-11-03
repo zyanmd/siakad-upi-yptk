@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../main.dart' show appNavigatorKey;
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
@@ -132,15 +133,31 @@ class AuthProvider extends ChangeNotifier {
     await _store.clearAuth();
     NotificationService.instance.onLogout();
     notifyListeners();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      appNavigatorKey.currentState?.pushNamedAndRemoveUntil(
+        '/login',
+        (route) => false,
+      );
+    });
   }
 
   void _onUnauthorized() {
-    if (_sessionId == null) return;
+    final hadSession = _sessionId != null;
     _sessionId = null;
     _user = {};
     expired = true;
     _store.clearAuth();
     NotificationService.instance.onLogout();
     notifyListeners();
+
+    if (hadSession) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        appNavigatorKey.currentState?.pushNamedAndRemoveUntil(
+          '/login',
+          (route) => false,
+        );
+      });
+    }
   }
 }

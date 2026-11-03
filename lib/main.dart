@@ -123,10 +123,16 @@ class _SessionGate extends StatefulWidget {
   State<_SessionGate> createState() => _SessionGateState();
 }
 
-class _SessionGateState extends State<_SessionGate> {
+class _SessionGateState extends State<_SessionGate> with WidgetsBindingObserver {
   AuthProvider? _auth;
   bool _wasAuthed = false;
   bool _redirecting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
 
   @override
   void didChangeDependencies() {
@@ -139,11 +145,21 @@ class _SessionGateState extends State<_SessionGate> {
     auth.addListener(_onAuthChanged);
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      final auth = _auth;
+      if (auth != null && auth.isAuthed) {
+        auth.validateSession();
+      }
+    }
+  }
+
   void _onAuthChanged() {
     final auth = _auth;
     if (auth == null) return;
     final authed = auth.isAuthed;
-    final lostSession = _wasAuthed && !authed;
+    final lostSession = (_wasAuthed && !authed) || (!authed && auth.expired);
     _wasAuthed = authed;
     if (!lostSession) return;
 
@@ -151,8 +167,8 @@ class _SessionGateState extends State<_SessionGate> {
     if (_redirecting) return;
     _redirecting = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final nav = appNavigatorKey.currentState;
       _redirecting = false;
+      final nav = appNavigatorKey.currentState;
       if (nav == null) return;
       // Kosongkan seluruh tumpukan agar tidak bisa "back" ke layar lama.
       nav.pushNamedAndRemoveUntil('/login', (route) => false);
@@ -161,6 +177,7 @@ class _SessionGateState extends State<_SessionGate> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _auth?.removeListener(_onAuthChanged);
     super.dispose();
   }

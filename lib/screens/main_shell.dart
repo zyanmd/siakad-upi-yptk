@@ -44,6 +44,7 @@ class _MainShellState extends State<MainShell> {
     if (!mounted) return;
     if (_auth != null && !_auth!.isAuthed) {
       context.read<PeriodeProvider>().reset();
+      Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
     }
   }
 

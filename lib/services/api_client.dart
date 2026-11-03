@@ -179,10 +179,18 @@ class ApiClient {
         lower.contains('sesi berakhir') ||
         lower.contains('sesi habis') ||
         lower.contains('kadaluarsa') ||
+        lower.contains('kedaluwarsa') ||
         lower.contains('login ulang') ||
         lower.contains('session rusak') ||
+        lower.contains('session expired') ||
+        lower.contains('session_expired') ||
+        lower.contains('session siakad') ||
         lower.contains('x-session-id wajib') ||
-        lower.contains('unauthorized');
+        lower.contains('unauthorized') ||
+        lower.contains('unauthenticated') ||
+        lower.contains('login - siakad upi yptk') ||
+        lower.contains('silakan login') ||
+        lower.contains('belum login');
   }
 
   dynamic _unwrap(Response resp) {
@@ -190,8 +198,14 @@ class ApiClient {
     final data = resp.data;
     final msg = _msgOf(data);
 
-    if (code == 401 ||
-        (data is Map && data['success'] == false && _isSessionExpiredMessage(msg))) {
+    final bool isSessionExpired = code == 401 ||
+        (data is Map &&
+            (data['session_expired'] == true ||
+                data['is_auth_error'] == true ||
+                (data['success'] == false && _isSessionExpiredMessage(msg)) ||
+                _isSessionExpiredMessage(msg)));
+
+    if (isSessionExpired) {
       final text = msg ?? 'Sesi berakhir. Silakan login kembali.';
       onUnauthorized?.call();
       throw ApiException(text, statusCode: 401, isAuthError: true);
