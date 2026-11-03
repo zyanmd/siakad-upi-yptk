@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../services/api_client.dart';
-import '../state/auth_provider.dart';
 import '../state/periode_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/smart.dart';
@@ -465,15 +464,15 @@ class _JadwalScreenState extends State<JadwalScreen> {
                 width: 0.8,
               ),
             ),
-            child: Row(
+            child: const Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.notifications_active_rounded,
                   size: 15,
                   color: AppColors.green,
                 ),
-                const SizedBox(width: 8),
-                const Expanded(
+                SizedBox(width: 8),
+                Expanded(
                   child: Text(
                     'Pengingat Kuliah Aktif (15 Menit Sebelum Jam Kuliah)',
                     style: TextStyle(
@@ -483,76 +482,12 @@ class _JadwalScreenState extends State<JadwalScreen> {
                     ),
                   ),
                 ),
-                InkWell(
-                  onTap: () => _testNotification(context),
-                  borderRadius: BorderRadius.circular(6),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.green.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Text(
-                      'Tes Notif',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.green,
-                      ),
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
         ],
       ),
     );
-  }
-
-  Future<void> _testNotification(BuildContext context) async {
-    final auth = context.read<AuthProvider>();
-    final api = context.read<ApiClient>();
-    final messenger = ScaffoldMessenger.of(context);
-
-    messenger.showSnackBar(
-      const SnackBar(
-        content: Text('Mengirim uji coba notifikasi OneSignal...'),
-        duration: Duration(seconds: 1),
-      ),
-    );
-
-    try {
-      final res = await api.post(
-        '/api/notifications/test',
-        body: {
-          'nim': auth.nim,
-          'broadcast': true,
-        },
-      );
-      if (res['success'] == true) {
-        final matkul = res['matkul_terpilih'] ?? 'Mata Kuliah';
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text('Notifikasi dikirim: ⏰ 15 Menit Lagi: $matkul'),
-            backgroundColor: AppColors.green,
-          ),
-        );
-      } else {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text('Status pengiriman: ${res["message"] ?? "OK"}'),
-          ),
-        );
-      }
-    } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Gagal mengirim notif: $e'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-    }
   }
 
   Widget _miniMetric(
