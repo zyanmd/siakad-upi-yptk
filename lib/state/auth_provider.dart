@@ -143,7 +143,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   void _onUnauthorized() {
-    final hadSession = _sessionId != null;
+    if (_sessionId == null) return;
     _sessionId = null;
     _user = {};
     expired = true;
@@ -151,13 +151,11 @@ class AuthProvider extends ChangeNotifier {
     NotificationService.instance.onLogout();
     notifyListeners();
 
-    if (hadSession) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        appNavigatorKey.currentState?.pushNamedAndRemoveUntil(
-          '/login',
-          (route) => false,
-        );
-      });
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      appNavigatorKey.currentState?.pushNamedAndRemoveUntil(
+        '/login',
+        (route) => false,
+      );
+    });
   }
 }

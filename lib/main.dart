@@ -159,7 +159,7 @@ class _SessionGateState extends State<_SessionGate> with WidgetsBindingObserver 
     final auth = _auth;
     if (auth == null) return;
     final authed = auth.isAuthed;
-    final lostSession = (_wasAuthed && !authed) || (!authed && auth.expired);
+    final lostSession = _wasAuthed && !authed;
     _wasAuthed = authed;
     if (!lostSession) return;
 

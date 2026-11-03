@@ -197,13 +197,15 @@ class ApiClient {
     final code = resp.statusCode ?? 0;
     final data = resp.data;
     final msg = _msgOf(data);
+    final isLogin = resp.requestOptions.path.contains('/auth/login');
 
-    final bool isSessionExpired = code == 401 ||
-        (data is Map &&
-            (data['session_expired'] == true ||
-                data['is_auth_error'] == true ||
-                (data['success'] == false && _isSessionExpiredMessage(msg)) ||
-                _isSessionExpiredMessage(msg)));
+    final bool isSessionExpired = !isLogin &&
+        (code == 401 ||
+            (data is Map &&
+                (data['session_expired'] == true ||
+                    data['is_auth_error'] == true ||
+                    (data['success'] == false && _isSessionExpiredMessage(msg)) ||
+                    _isSessionExpiredMessage(msg))));
 
     if (isSessionExpired) {
       final text = msg ?? 'Sesi berakhir. Silakan login kembali.';
@@ -236,7 +238,8 @@ class ApiClient {
       if (resp != null) {
         final code = resp.statusCode ?? 0;
         final msg = _msgOf(resp.data);
-        if (code == 401 || _isSessionExpiredMessage(msg)) {
+        final isLogin = resp.requestOptions.path.contains('/auth/login');
+        if (!isLogin && (code == 401 || _isSessionExpiredMessage(msg))) {
           onUnauthorized?.call();
           return ApiException(
             msg ?? 'Sesi berakhir. Silakan login kembali.',

@@ -24,7 +24,9 @@ class _SplashScreenState extends State<SplashScreen> {
     await Future.delayed(const Duration(milliseconds: 700));
     await auth.bootstrap();
     if (auth.isAuthed) {
-      await auth.validateSession();
+      try {
+        await auth.validateSession().timeout(const Duration(seconds: 4));
+      } catch (_) {}
     }
     if (!mounted) return;
     Navigator.of(context)
