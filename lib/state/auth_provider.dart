@@ -1,6 +1,6 @@
+import 'dart:async' show unawaited;
 import 'package:flutter/material.dart';
 
-import '../main.dart' show appNavigatorKey;
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
@@ -21,6 +21,7 @@ class AuthProvider extends ChangeNotifier {
 
   String? _sessionId;
   Map<String, dynamic> _user = {};
+  Map<String, dynamic>? initialDashboard;
   bool _booted = false;
 
   /// True bila sesi berakhir dipaksa (401), untuk banner di login.
@@ -48,7 +49,7 @@ class AuthProvider extends ChangeNotifier {
     _user = _store.userCached;
     _booted = true;
     if (_sessionId != null && nim != '-') {
-      NotificationService.instance.onLogin(nim);
+      unawaited(NotificationService.instance.onLogin(nim));
     }
     notifyListeners();
   }
@@ -57,6 +58,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> login(String username, String password) async {
     // Bersihkan sesi lama sebelum mencoba login baru
     _sessionId = null;
+    initialDashboard = null;
     await _store.clearAuth();
 
     final resp = await _auth.login(username, password);
@@ -71,12 +73,15 @@ class AuthProvider extends ChangeNotifier {
     }
     _sessionId = sid;
     _user = asMap(map['user']);
+    if (map['dashboard'] is Map) {
+      initialDashboard = asMap(map['dashboard']);
+    }
     expired = false;
     await _store.saveAuth(sid, _user);
     await _store.saveUsername(username);
 
-    // Daftarkan NIM ke OneSignal untuk push notification pengingat kuliah
-    NotificationService.instance.onLogin(username);
+    // Daftarkan NIM ke OneSignal untuk push notification pengingat kuliah di background
+    unawaited(NotificationService.instance.onLogin(username));
 
     notifyListeners();
   }
@@ -98,64 +103,46 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> validateSession() async {
     if (_sessionId == null) return false;
     try {
-      final resp = await _auth.me();
+      final resp = await _api.get('/api/auth/me');
       final map = asMap(resp);
-      if (map['success'] == true) {
-        if (map['user'] is Map) {
-          _user = asMap(map['user']);
-          await _store.saveAuth(_sessionId!, _user);
-        }
-        return true;
-      }
-      _onUnauthorized();
-      return false;
-    } catch (e) {
-      if (e is ApiException && (e.isAuthError || e.statusCode == 401)) {
+      return map['success'] == true;
+    } on ApiException catch (e) {
+      if (e.statusCode == 401 || e.isAuthError) {
         _onUnauthorized();
-        return false;
       }
-      // Error koneksi/offline sementara: jangan paksa logout
+      return false;
+    } catch (_) {
+      // Kesalahan jaringan umum (offline dsb) jangan membatalkan sesi lokal
       return true;
     }
   }
 
-  /// Logout + bersihkan penyimpanan lokal.
-  Future<void> logout({bool callApi = true}) async {
-    if (callApi && _sessionId != null) {
-      try {
+  /// Logout lokal dan server; abaikan error server agar user tetap bisa keluar.
+  Future<void> logout() async {
+    try {
+      if (_sessionId != null) {
         await _auth.logout();
-      } catch (_) {
-        // Tetap logout lokal walau API gagal.
       }
-    }
+    } catch (_) {}
     _sessionId = null;
     _user = {};
+    initialDashboard = null;
+    expired = false;
     await _store.clearAuth();
-    NotificationService.instance.onLogout();
+    unawaited(NotificationService.instance.onLogout());
     notifyListeners();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      appNavigatorKey.currentState?.pushNamedAndRemoveUntil(
-        '/login',
-        (route) => false,
-      );
-    });
   }
 
+  /// Callback otomatis dipanggil oleh [ApiClient] bila menerima HTTP 401.
+  /// Memastikan user langsung diarahkan ke halaman login dari layar mana pun.
   void _onUnauthorized() {
+    // Hanya picu redirect bila user memang sebelumnya memegang sesi aktif.
     if (_sessionId == null) return;
     _sessionId = null;
     _user = {};
+    initialDashboard = null;
     expired = true;
     _store.clearAuth();
-    NotificationService.instance.onLogout();
     notifyListeners();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      appNavigatorKey.currentState?.pushNamedAndRemoveUntil(
-        '/login',
-        (route) => false,
-      );
-    });
   }
 }

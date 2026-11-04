@@ -24,7 +24,16 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _index = 0;
+  final Set<int> _loadedTabs = {0};
   AuthProvider? _auth;
+
+  void _selectTab(int idx) {
+    if (_index == idx) return;
+    setState(() {
+      _index = idx;
+      _loadedTabs.add(idx);
+    });
+  }
 
   @override
   void initState() {
@@ -33,7 +42,6 @@ class _MainShellState extends State<MainShell> {
       if (!mounted) return;
       _auth = context.read<AuthProvider>();
       _auth!.addListener(_onAuthChanged);
-      context.read<PeriodeProvider>().ensureLoaded();
       if (!_auth!.isAuthed) {
         Navigator.of(context).pushReplacementNamed('/login');
       }
@@ -60,9 +68,9 @@ class _MainShellState extends State<MainShell> {
 
     final pages = [
       const DashboardScreen(),
-      const JadwalScreen(),
-      const TagihanScreen(),
-      const ProfilScreen(),
+      _loadedTabs.contains(1) ? const JadwalScreen() : const SizedBox.shrink(),
+      _loadedTabs.contains(2) ? const TagihanScreen() : const SizedBox.shrink(),
+      _loadedTabs.contains(3) ? const ProfilScreen() : const SizedBox.shrink(),
     ];
 
     final navItems = [
@@ -297,7 +305,7 @@ class _MainShellState extends State<MainShell> {
           borderRadius: BorderRadius.circular(14),
           onTap: () {
             if (_index != index) {
-              setState(() => _index = index);
+              _selectTab(index);
             }
           },
           child: AnimatedContainer(
@@ -478,7 +486,7 @@ class _MainShellState extends State<MainShell> {
     return GestureDetector(
       onTap: () {
         if (_index != index) {
-          setState(() => _index = index);
+          _selectTab(index);
         }
       },
       behavior: HitTestBehavior.opaque,

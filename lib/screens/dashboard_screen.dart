@@ -95,7 +95,8 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _tick = 0;
-  int _categoryIndex = 0; // 0: Semua, 1: Jadwal Hari Ini, 2: Akademik, 3: Keuangan, 4: Wisuda
+  int _categoryIndex = 0;
+  List<Map<String, dynamic>>? _extraJadwalHariIni;
 
   static const List<Color> _yellowHeaderGradient = [
     Color(0xFFE5A620), // Bright Academic Gold
@@ -109,33 +110,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final nim = auth.nim;
 
     Map<String, dynamic> data = {};
-    try {
-      final resp = await DashboardService(api).getDashboard();
-      final raw = resp is Map ? (resp['data'] ?? resp) : resp;
-      data = asMap(raw);
-    } catch (_) {
-      data = {};
-    }
-
-    // Jika payload dashboard tidak memuat jadwal hari ini, ambil dari
-    // endpoint jadwal khusus (/api/akademik/jadwal) yang dikelompokkan
-    // per hari. Hal ini agar dashboard tetap menampilkan jadwal kuliah
-    // hari ini walau endpoint /api/dashboard tidak menyertakannya.
-    try {
-      final existing = _extractJadwalHariIni(data);
-      if (existing.isEmpty) {
-        final fromJadwal = await _fetchJadwalHariIni();
-        if (fromJadwal.isNotEmpty) {
-          data = {...data, 'jadwal_hari_ini': fromJadwal};
-        }
+    // Utamakan initialDashboard yang sudah di-precache dari respons login untuk performa instan
+    if (auth.initialDashboard != null && auth.initialDashboard!.isNotEmpty) {
+      data = Map<String, dynamic>.from(auth.initialDashboard!);
+    } else {
+      try {
+        final resp = await DashboardService(api).getDashboard();
+        final raw = resp is Map ? (resp['data'] ?? resp) : resp;
+        data = asMap(raw);
+      } catch (_) {
+        data = {};
       }
-    } catch (_) {
-      // Abaikan: dashboard tetap tampil walau jadwal gagal dimuat.
     }
 
-    // Otomatis sinkronisasi jadwal lengkap ke server untuk pengingat 15 menit
+    // Jika belum ada jadwal hari ini, ambil di background tanpa memblokir render UI
+    final existing = _extractJadwalHariIni(data);
+    if (existing.isEmpty && mounted && _extraJadwalHariIni == null) {
+      Future.microtask(() async {
+        try {
+          final fromJadwal = await _fetchJadwalHariIni();
+          if (fromJadwal.isNotEmpty && mounted) {
+            setState(() {
+              _extraJadwalHariIni = fromJadwal;
+            });
+          }
+        } catch (_) {}
+      });
+    }
+
+    // Sinkronisasi pengingat 15 menit di background
     if (nim != '-') {
-      NotificationService.instance.ensureJadwalSynced(api, nim);
+      Future.microtask(() => NotificationService.instance.ensureJadwalSynced(api, nim));
     }
 
     return data;
@@ -2110,6 +2115,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       7: ['minggu', 'ahad', 'sun', 'sunday'],
     };
     final todayAliases = dayMap[now.weekday] ?? [];
+
+    if (_extraJadwalHariIni != null && _extraJadwalHariIni!.isNotEmpty) {
+      return _extraJadwalHariIni!;
+    }
 
     // 1. Cek jika ada key eksplisit `jadwal_hari_ini` atau `today_schedule`
     for (final key in ['jadwal_hari_ini', 'today_schedule', 'jadwal_today']) {
