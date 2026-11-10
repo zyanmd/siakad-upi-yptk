@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import 'absen_qr_screen.dart';
 import '../services/api_client.dart';
 import '../state/auth_provider.dart';
 import '../state/periode_provider.dart';
@@ -276,29 +277,62 @@ class _PresensiScreenState extends State<PresensiScreen> {
                         ),
                       ],
                     ),
-                    IosBounceTap(
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        _reload();
-                        appToast(context, 'Memuat ulang data presensi...');
-                      },
-                      child: Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.22),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.10),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IosBounceTap(
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const AbsenQrScreen(),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.22),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.10),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
                             ),
-                          ],
+                            child: const Icon(Icons.qr_code_scanner_rounded,
+                                size: 20, color: Colors.white),
+                          ),
                         ),
-                        child: const Icon(Icons.refresh_rounded,
-                            size: 20, color: Colors.white),
-                      ),
+                        const SizedBox(width: 8),
+                        IosBounceTap(
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            _reload();
+                            appToast(context, 'Memuat ulang data presensi...');
+                          },
+                          child: Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.22),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.10),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(Icons.refresh_rounded,
+                                size: 20, color: Colors.white),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

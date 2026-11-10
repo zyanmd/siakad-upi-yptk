@@ -92,6 +92,14 @@ class AkademikService {
       _api.get('/api/akademik/presensi/detail/$detailToken',
           query: {'periode': periode});
 
+  /// Ambil info & status halaman Absen QR.
+  Future<dynamic> absenQr() =>
+      _api.get('/api/akademik/absen-qr');
+
+  /// Kirim token QR presensi ke server.
+  Future<dynamic> absenQrSubmit(String token) =>
+      _api.post('/api/akademik/absen-qr', body: {'token': token});
+
   // ---------------------------------------------------------- Materi
 
   Future<dynamic> materi(String periode) =>

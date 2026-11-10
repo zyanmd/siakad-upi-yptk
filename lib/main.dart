@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
+import 'screens/absen_qr_screen.dart';
 import 'screens/chat_assistant_screen.dart';
 import 'screens/download_screen.dart';
 import 'screens/foto_ijazah_screen.dart';
@@ -98,6 +99,7 @@ class SiakadApp extends StatelessWidget {
                   '/home': (_) => const MainShell(),
                   '/profil-akademik': (_) => const ProfilAkademikScreen(),
                   '/download': (_) => const DownloadScreen(),
+                  '/absen-qr': (_) => const AbsenQrScreen(),
                   '/foto-ijazah': (_) => const FotoIjazahScreen(),
                   '/kartu-wisuda': (_) => const KartuQrCodeWisudaScreen(),
                   '/chat': (_) => const ChatAssistantScreen(),

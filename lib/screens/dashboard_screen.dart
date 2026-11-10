@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import 'absen_qr_screen.dart';
 import '../services/api_client.dart';
 import '../services/dashboard_service.dart';
 import '../services/notification_service.dart';
@@ -1213,6 +1214,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         icon: Icons.fact_check_rounded,
         color: AppColors.green,
         page: const PresensiScreen(),
+      ),
+      (
+        label: 'Absen QR',
+        desc: 'Scan QR Presensi',
+        category: 'akademik',
+        icon: Icons.qr_code_scanner_rounded,
+        color: AppColors.upiYellowDeep,
+        page: const AbsenQrScreen(),
       ),
       (
         label: 'Materi Kuliah',
