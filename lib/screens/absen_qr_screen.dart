@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 
 import '../services/akademik_service.dart';
@@ -16,7 +17,7 @@ const _yellowHeaderGradient = [
 ];
 
 /// Halaman Absen QR SIAKAD UPI YPTK
-/// Memindai atau memasukkan token QR yang ditampilkan dosen saat perkuliahan.
+/// Memindai kamera langsung atau memasukkan token QR yang ditampilkan dosen saat perkuliahan.
 class AbsenQrScreen extends StatefulWidget {
   const AbsenQrScreen({super.key});
 
@@ -24,20 +25,50 @@ class AbsenQrScreen extends StatefulWidget {
   State<AbsenQrScreen> createState() => _AbsenQrScreenState();
 }
 
-class _AbsenQrScreenState extends State<AbsenQrScreen> {
+class _AbsenQrScreenState extends State<AbsenQrScreen> with SingleTickerProviderStateMixin {
   final TextEditingController _tokenCtrl = TextEditingController();
+  late final MobileScannerController _scannerController;
+  late final AnimationController _animController;
+  late final Animation<double> _scanAnimation;
+
   bool _isLoading = false;
   bool _isCameraActive = true;
+  bool _isTorchOn = false;
   String? _successMessage;
   String? _courseName;
   String? _errorMessage;
   int _retryCountdown = 0;
   Timer? _countdownTimer;
+  DateTime? _lastScannedTime;
+
+  @override
+  void initState() {
+    super.initState();
+    _scannerController = MobileScannerController(
+      autoStart: true,
+      detectionSpeed: DetectionSpeed.noDuplicates,
+      detectionTimeoutMs: 1200,
+      facing: CameraFacing.back,
+      formats: const [BarcodeFormat.qrCode],
+      torchEnabled: false,
+    );
+
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat(reverse: true);
+
+    _scanAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
+    );
+  }
 
   @override
   void dispose() {
     _tokenCtrl.dispose();
     _countdownTimer?.cancel();
+    _animController.dispose();
+    _scannerController.dispose();
     super.dispose();
   }
 
@@ -65,6 +96,26 @@ class _AbsenQrScreenState extends State<AbsenQrScreen> {
     });
   }
 
+  void _onQrDetected(BarcodeCapture capture) {
+    if (_isLoading || _retryCountdown > 0 || !_isCameraActive) return;
+
+    final now = DateTime.now();
+    if (_lastScannedTime != null &&
+        now.difference(_lastScannedTime!) < const Duration(milliseconds: 1500)) {
+      return;
+    }
+
+    for (final barcode in capture.barcodes) {
+      final raw = barcode.rawValue?.trim();
+      if (raw != null && raw.isNotEmpty) {
+        _lastScannedTime = now;
+        _tokenCtrl.text = raw;
+        _submitToken(raw);
+        break;
+      }
+    }
+  }
+
   Future<void> _submitToken(String token) async {
     final cleanToken = token.trim();
     if (cleanToken.isEmpty) {
@@ -76,6 +127,7 @@ class _AbsenQrScreenState extends State<AbsenQrScreen> {
     }
 
     if (!RegExp(r'^[A-Za-z0-9_-]{10,2048}$').hasMatch(cleanToken)) {
+      HapticFeedback.vibrate();
       setState(() {
         _errorMessage =
             'Kode ini bukan QR presensi SISFO. Arahkan ke QR yang ditampilkan dosen.';
@@ -222,16 +274,18 @@ class _AbsenQrScreenState extends State<AbsenQrScreen> {
   }
 
   void _showManualInputDialog() {
-    final ctrl = TextEditingController();
+    final ctrl = TextEditingController(text: _tokenCtrl.text);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: const Text('Input Token QR Manual', style: TextStyle(fontWeight: FontWeight.bold)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Jika kamera tidak dapat memindai, Anda dapat menempelkan token kode QR di sini:',
+              'Jika kamera tidak dapat memindai, Anda dapat menempelkan token kode QR di bawah:',
               style: TextStyle(fontSize: 13, color: AppColors.grey),
             ),
             const SizedBox(height: 12),
@@ -337,7 +391,7 @@ class _AbsenQrScreenState extends State<AbsenQrScreen> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Presensi perkuliahan via kode QR Dosen',
+                        'Presensi perkuliahan via kamera pemindai QR Dosen',
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.9),
                           fontSize: 13,
@@ -373,15 +427,15 @@ class _AbsenQrScreenState extends State<AbsenQrScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           const Text(
-                            'Absen QR',
+                            'Pemindai Kamera',
                             style: TextStyle(
-                              fontSize: 20,
+                              fontSize: 19,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
                           const SizedBox(height: 6),
                           const Text(
-                            'Arahkan kamera ke QR yang ditampilkan dosen. QR berubah setiap 20 detik.',
+                            'Arahkan kamera ke QR yang ditampilkan dosen di layar kelas. QR diperbarui setiap 20 detik.',
                             style: TextStyle(
                               fontSize: 13,
                               color: AppColors.grey,
@@ -390,89 +444,220 @@ class _AbsenQrScreenState extends State<AbsenQrScreen> {
                           ),
                           const SizedBox(height: 18),
 
-                          // Scanner viewfinder box
+                          // LIVE CAMERA SCANNER VIEWPORT
                           Container(
-                            height: 280,
+                            height: 310,
                             decoration: BoxDecoration(
                               color: Colors.black,
                               borderRadius: BorderRadius.circular(16),
                             ),
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                if (!_isCameraActive)
-                                  const Center(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.videocam_off_rounded,
-                                          color: Colors.white54,
-                                          size: 48,
-                                        ),
-                                        SizedBox(height: 8),
-                                        Text(
-                                          'Kamera belum dimulai.',
-                                          style: TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                else
-                                  Center(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        // Target Reticle
-                                        Container(
-                                          width: 190,
-                                          height: 190,
-                                          decoration: BoxDecoration(
-                                            border: Border.all(
-                                              color: AppColors.upiYellow,
-                                              width: 3,
-                                            ),
-                                            borderRadius: BorderRadius.circular(18),
-                                          ),
-                                          child: Stack(
-                                            children: [
-                                              Center(
-                                                child: Icon(
-                                                  Icons.qr_code_scanner_rounded,
-                                                  color: AppColors.upiYellow.withValues(alpha: 0.8),
-                                                  size: 80,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  // Live Mobile Scanner
+                                  if (_isCameraActive)
+                                    MobileScanner(
+                                      controller: _scannerController,
+                                      fit: BoxFit.cover,
+                                      onDetect: _onQrDetected,
+                                      errorBuilder: (context, error) {
+                                        return Center(
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(20),
+                                            child: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(
+                                                  Icons.no_photography_outlined,
+                                                  color: Colors.white70,
+                                                  size: 44,
                                                 ),
+                                                const SizedBox(height: 12),
+                                                const Text(
+                                                  'Akses Kamera Terhalang',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 15,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 6),
+                                                Text(
+                                                  'Pastikan izin kamera telah diberikan di pengaturan perangkat Anda.\n${error.errorDetails?.message ?? error.errorCode.name}',
+                                                  style: const TextStyle(
+                                                    color: Colors.white70,
+                                                    fontSize: 12,
+                                                  ),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    )
+                                  else
+                                    const Center(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.videocam_off_rounded,
+                                            color: Colors.white54,
+                                            size: 52,
+                                          ),
+                                          SizedBox(height: 10),
+                                          Text(
+                                            'Kamera sedang nonaktif.',
+                                            style: TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          SizedBox(height: 4),
+                                          Text(
+                                            'Tekan "Mulai Kamera" di bawah untuk menyalakan.',
+                                            style: TextStyle(
+                                              color: Colors.white38,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+
+                                  // Viewfinder Reticle Overlay (Golden Reticle)
+                                  if (_isCameraActive)
+                                    Center(
+                                      child: SizedBox(
+                                        width: 210,
+                                        height: 210,
+                                        child: Stack(
+                                          children: [
+                                            // Frame Border with Gold Accent
+                                            Container(
+                                              decoration: BoxDecoration(
+                                                border: Border.all(
+                                                  color: AppColors.upiYellow,
+                                                  width: 3,
+                                                ),
+                                                borderRadius: BorderRadius.circular(16),
                                               ),
-                                              if (_isLoading)
-                                                const Center(
+                                            ),
+
+                                            // Animated Scanning Laser Bar
+                                            AnimatedBuilder(
+                                              animation: _scanAnimation,
+                                              builder: (context, child) {
+                                                return Positioned(
+                                                  top: 200 * _scanAnimation.value,
+                                                  left: 8,
+                                                  right: 8,
+                                                  child: Container(
+                                                    height: 3,
+                                                    decoration: BoxDecoration(
+                                                      gradient: const LinearGradient(
+                                                        colors: [
+                                                          Colors.transparent,
+                                                          AppColors.upiYellow,
+                                                          Colors.white,
+                                                          AppColors.upiYellow,
+                                                          Colors.transparent,
+                                                        ],
+                                                      ),
+                                                      boxShadow: [
+                                                        BoxShadow(
+                                                          color: AppColors.upiYellow.withValues(alpha: 0.8),
+                                                          blurRadius: 8,
+                                                          spreadRadius: 2,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+
+                                            // Loading overlay when token is processing
+                                            if (_isLoading)
+                                              Container(
+                                                decoration: BoxDecoration(
+                                                  color: Colors.black54,
+                                                  borderRadius: BorderRadius.circular(16),
+                                                ),
+                                                child: const Center(
                                                   child: CircularProgressIndicator(
                                                     color: AppColors.upiYellow,
                                                   ),
                                                 ),
-                                            ],
-                                          ),
+                                              ),
+                                          ],
                                         ),
-                                        const SizedBox(height: 12),
-                                        const Text(
-                                          'Posisikan QR dosen di dalam bingkai',
-                                          style: TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
+                                      ),
                                     ),
-                                  ),
-                              ],
+
+                                  // Floating Camera Tool Buttons (Torch & Switch Camera)
+                                  if (_isCameraActive)
+                                    Positioned(
+                                      top: 10,
+                                      right: 10,
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          // Torch / Flash button
+                                          Container(
+                                            decoration: BoxDecoration(
+                                              color: Colors.black.withValues(alpha: 0.6),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: IconButton(
+                                              icon: Icon(
+                                                _isTorchOn ? Icons.flash_on_rounded : Icons.flash_off_rounded,
+                                                color: _isTorchOn ? AppColors.upiYellow : Colors.white,
+                                                size: 20,
+                                              ),
+                                              tooltip: 'Senter',
+                                              onPressed: () async {
+                                                await _scannerController.toggleTorch();
+                                                setState(() {
+                                                  _isTorchOn = !_isTorchOn;
+                                                });
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          // Switch Camera button
+                                          Container(
+                                            decoration: BoxDecoration(
+                                              color: Colors.black.withValues(alpha: 0.6),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: IconButton(
+                                              icon: const Icon(
+                                                Icons.flip_camera_ios_rounded,
+                                                color: Colors.white,
+                                                size: 20,
+                                              ),
+                                              tooltip: 'Ganti Kamera',
+                                              onPressed: () async {
+                                                await _scannerController.switchCamera();
+                                              },
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
                           ),
 
                           const SizedBox(height: 16),
 
-                          // Action Buttons: Mulai / Hentikan
+                          // Action Buttons: Mulai / Hentikan Kamera
                           Row(
                             children: [
                               Expanded(
@@ -488,11 +673,12 @@ class _AbsenQrScreenState extends State<AbsenQrScreen> {
                                   ),
                                   onPressed: _isCameraActive
                                       ? null
-                                      : () {
+                                      : () async {
                                           setState(() {
                                             _isCameraActive = true;
                                             _errorMessage = null;
                                           });
+                                          await _scannerController.start();
                                         },
                                   icon: const Icon(Icons.videocam_rounded, size: 20),
                                   label: const Text(
@@ -516,10 +702,11 @@ class _AbsenQrScreenState extends State<AbsenQrScreen> {
                                   ),
                                   onPressed: !_isCameraActive
                                       ? null
-                                      : () {
+                                      : () async {
                                           setState(() {
                                             _isCameraActive = false;
                                           });
+                                          await _scannerController.stop();
                                         },
                                   icon: const Icon(Icons.stop_circle_outlined, size: 20),
                                   label: const Text(
@@ -558,8 +745,8 @@ class _AbsenQrScreenState extends State<AbsenQrScreen> {
                                 Expanded(
                                   child: Text(
                                     _isCameraActive
-                                        ? 'Kamera aktif. Arahkan ke QR dosen. Hasil akhir disimpan oleh dosen.'
-                                        : 'Kamera belum dimulai.',
+                                        ? 'Kamera aktif. Posisikan QR dosen di dalam bingkai emas. Presensi akan diproses otomatis.'
+                                        : 'Kamera sedang nonaktif.',
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF0369A1),
@@ -644,7 +831,7 @@ class _AbsenQrScreenState extends State<AbsenQrScreen> {
                                 child: TextField(
                                   controller: _tokenCtrl,
                                   decoration: InputDecoration(
-                                    hintText: 'Tempel token QR di sini...',
+                                    hintText: 'Atau tempel token QR di sini...',
                                     hintStyle: const TextStyle(fontSize: 13),
                                     isDense: true,
                                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
