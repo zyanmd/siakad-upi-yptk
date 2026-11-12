@@ -95,7 +95,7 @@ class TentangAplikasiScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Versi 1.0.1 (Modern Edition)',
+                        'Versi 1.0.9 (Modern Edition)',
                         style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w600,
@@ -243,7 +243,7 @@ class TentangAplikasiScreen extends StatelessWidget {
                           final provider = context.read<AppUpdateProvider>();
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Memeriksa rilis terbaru di GitHub...'),
+                              content: Text('Memeriksa update terbaru...'),
                               duration: Duration(seconds: 1),
                             ),
                           );
@@ -255,7 +255,7 @@ class TentangAplikasiScreen extends StatelessWidget {
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('Aplikasi sudah menggunakan versi terbaru (v1.0.1).'),
+                                content: Text('Aplikasi sudah menggunakan versi terbaru (v1.0.9).'),
                               ),
                             );
                           }
@@ -301,7 +301,7 @@ class TentangAplikasiScreen extends StatelessWidget {
                 // Footer Clean
                 Center(
                   child: Text(
-                    'SIAKAD UNOFFICIAL • Modern Edition v1.0.1',
+                    'SIAKAD UNOFFICIAL • Modern Edition v1.0.9',
                     style: TextStyle(
                       fontSize: 11,
                       color: context.textMuted,

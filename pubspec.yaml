@@ -1,7 +1,7 @@
 name: siakad_app
 description: "Aplikasi SIAKAD Kampus modern (Flutter) - terhubung ke SIAKAD UPI YPTK Scraper API."
 publish_to: "none"
-version: 1.0.8+9
+version: 1.0.9+10
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -18,7 +18,6 @@ dependencies:
   url_launcher: ^6.3.1
   printing: ^5.15.0
   pdf: ^3.11.1
-  flutter_widget_from_html: ^0.17.4
   image_picker: ^1.2.3
   google_fonts: ^8.2.1
   timeline_tile: ^2.0.0
@@ -50,3 +49,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icon/icon.png   # opsional, kalau mau dipakai di dalam app juga
+    - assets/images/open_peeps_mahasiswa.png

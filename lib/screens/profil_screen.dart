@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 
 import '../services/api_client.dart';
 import '../state/auth_provider.dart';
-import '../state/language_provider.dart';
 import '../state/theme_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_strings.dart';
@@ -531,59 +530,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // ---------------- pengaturan bahasa ----------------
-                SectionTitle(context.tr('language_section', 'Bahasa / Language')),
-                const SizedBox(height: 10),
-                _buildNeuCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(7),
-                            decoration: BoxDecoration(
-                              color: AppColors.upiYellowDeep.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(
-                              Icons.translate_rounded,
-                              size: 19,
-                              color: AppColors.upiYellowDeep,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  context.tr('language_title', 'Bahasa Aplikasi'),
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  context.tr('language_desc', 'Pilih bahasa antarmuka aplikasi'),
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    color: context.textMuted,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      const LanguageSwitcher(),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-
                 // ---------------- tentang aplikasi & bantuan ----------------
                 SectionTitle(context.tr('about_section', 'Tentang & Bantuan')),
                 const SizedBox(height: 10),
@@ -661,7 +607,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
                                                     .withValues(alpha: 0.3)),
                                           ),
                                           child: const Text(
-                                            'v1.0.1',
+                                            'v1.0.9',
                                             style: TextStyle(
                                               fontSize: 9.5,
                                               fontWeight: FontWeight.w800,
@@ -687,66 +633,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
                                 Icons.chevron_right_rounded,
                                 color: context.textMuted,
                                 size: 20,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      Divider(height: 1, color: context.border),
-
-                      // Tombol Link Telegram Clean
-                      IosBounceTap(
-                        onTap: () =>
-                            openExternal(context, 'https://t.me/rhandev'),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 42,
-                                height: 42,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF229ED9)
-                                      .withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                alignment: Alignment.center,
-                                child: const Icon(
-                                  Icons.send_rounded,
-                                  color: Color(0xFF229ED9),
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 13),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      context.tr('developer_contact',
-                                          'Hubungi Pengembang via Telegram'),
-                                      style: TextStyle(
-                                        color: context.textPrimary,
-                                        fontSize: 13.5,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      context.tr('developer_sub',
-                                          'Kritik, saran, atau laporan kendala'),
-                                      style: TextStyle(
-                                        fontSize: 11.5,
-                                        color: context.textMuted,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const Icon(
-                                Icons.open_in_new_rounded,
-                                color: Color(0xFF229ED9),
-                                size: 17,
                               ),
                             ],
                           ),

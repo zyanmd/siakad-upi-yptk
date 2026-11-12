@@ -1,4 +1,6 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-sdk tools:overrideLibrary="io.flutter.plugins.sharedpreferences, io.flutter.plugins.urllauncher, io.flutter.plugins.imagepicker, io.flutter.plugins.flutter_plugin_android_lifecycle, dev.steenbakker.mobile_scanner, androidx.camera.camera2, androidx.camera.core, androidx.camera.lifecycle, androidx.camera.view" />
     <!-- Wajib agar aplikasi dapat mengakses API -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.CAMERA"/>
@@ -28,6 +30,7 @@
         android:label="SIAKAD UPI YPTK"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"
+        android:extractNativeLibs="true"
         android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"

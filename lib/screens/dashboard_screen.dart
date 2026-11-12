@@ -45,7 +45,9 @@ class Neu {
 
   /// Shadow timbul ganda khas Neumorphic (soft light di atas-kiri, shadow di bawah-kanan)
   static List<BoxShadow> convex(BuildContext context,
-      {double blur = 11, Offset offset = const Offset(4.5, 4.5), double opacity = 1.0}) {
+      {double blur = 11,
+      Offset offset = const Offset(4.5, 4.5),
+      double opacity = 1.0}) {
     return [
       BoxShadow(
         color: light(context).withValues(alpha: opacity),
@@ -141,7 +143,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     // Sinkronisasi pengingat 15 menit di background
     if (nim != '-') {
-      Future.microtask(() => NotificationService.instance.ensureJadwalSynced(api, nim));
+      Future.microtask(
+          () => NotificationService.instance.ensureJadwalSynced(api, nim));
     }
 
     return data;
@@ -157,7 +160,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
     final periode = pp.value ?? fallbackPeriode();
 
-    final resp = await api.get('/api/akademik/jadwal', query: {'periode': periode});
+    final resp =
+        await api.get('/api/akademik/jadwal', query: {'periode': periode});
     final raw = resp is Map ? (resp['data'] ?? resp) : resp;
     final mapData = asMap(raw);
 
@@ -204,8 +208,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic> _normalizeJadwalItem(Map<String, dynamic> item) {
     final out = <String, dynamic>{...item};
 
-    final jamMulai = pickString(
-        item, ['waktu_mulai', 'jam_mulai', 'jam_mulai_kuliah'], '');
+    final jamMulai =
+        pickString(item, ['waktu_mulai', 'jam_mulai', 'jam_mulai_kuliah'], '');
     final jamSelesai = pickString(
         item, ['waktu_selesai', 'jam_selesai', 'jam_selesai_kuliah'], '');
 
@@ -220,8 +224,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (time.isNotEmpty) out['jam'] = time;
 
     if (pickString(out, ['matkul', 'nama_matkul'], '').isEmpty) {
-      final mk = pickString(
-          item, ['matkul', 'nama_mk', 'nm_mk', 'mata_kuliah', 'nama', 'mk'], '');
+      final mk = pickString(item,
+          ['matkul', 'nama_mk', 'nm_mk', 'mata_kuliah', 'nama', 'mk'], '');
       if (mk.isNotEmpty) out['matkul'] = mk;
     }
 
@@ -311,7 +315,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           _buildFeaturedCardsCarousel(
                               context, data, auth.user, jadwals),
                           const SizedBox(height: 18),
-                          _buildAcademicProgressBanner(context, data, auth.user),
+                          _buildAcademicProgressBanner(
+                              context, data, auth.user),
                           const SizedBox(height: 22),
                         ],
 
@@ -418,147 +423,152 @@ class _DashboardScreenState extends State<DashboardScreen> {
             end: Alignment.bottomRight,
           ),
         ),
-        child: SafeArea(
-          bottom: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-                22, 12, 22, kCurvedHeaderBottomPadding),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Baris Atas: Judul/Branding SIAKAD & Tombol Reload
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Stack(
+          children: [
+            const Positioned.fill(child: GoldenHeaderBackdrop()),
+            SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                    22, 12, 22, kCurvedHeaderBottomPadding),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Baris Atas: Judul/Branding SIAKAD & Tombol Reload
                     Row(
-                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.22),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.school_rounded,
-                              size: 19, color: Colors.white),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.22),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.school_rounded,
+                                  size: 19, color: Colors.white),
+                            ),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'SIAKAD Mobile',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 21,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.4,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'SIAKAD Mobile',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 21,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.4,
+                        // Tombol Reload
+                        IosBounceTap(
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            setState(() => _tick++);
+                            appToast(context, 'Memuat ulang data beranda...');
+                          },
+                          child: Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.22),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.10),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(Icons.refresh_rounded,
+                                size: 20, color: Colors.white),
                           ),
                         ),
                       ],
                     ),
-                    // Tombol Reload
-                    IosBounceTap(
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        setState(() => _tick++);
-                        appToast(context, 'Memuat ulang data beranda...');
-                      },
-                      child: Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.22),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.10),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(Icons.refresh_rounded,
-                            size: 20, color: Colors.white),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                // Baris Profil: Lingkaran Avatar/Inisial (54x54) + Nama & NIM
-                Row(
-                  children: [
-                    IosBounceTap(
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const ProfilAkademikScreen(),
+                    // Baris Profil: Lingkaran Avatar/Inisial (54x54) + Nama & NIM
+                    Row(
+                      children: [
+                        IosBounceTap(
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const ProfilAkademikScreen(),
+                            ),
+                          ),
+                          child: Container(
+                            width: 54,
+                            height: 54,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white.withValues(alpha: 0.18),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.85),
+                                width: 1.8,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.12),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: Text(
+                                initialsOf(nama),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                      child: Container(
-                        width: 54,
-                        height: 54,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white.withValues(alpha: 0.18),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.85),
-                            width: 1.8,
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                nama.isNotEmpty ? nama : 'Mahasiswa UPI YPTK',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 17.5,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.3,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                nim.isNotEmpty
+                                    ? 'NIM $nim • UPI YPTK Padang'
+                                    : 'Portal Akademik Mahasiswa',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.92),
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.12),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
                         ),
-                        child: Center(
-                          child: Text(
-                            initialsOf(nama),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            nama.isNotEmpty ? nama : 'Mahasiswa UPI YPTK',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 17.5,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.3,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            nim.isNotEmpty
-                                ? 'NIM $nim • UPI YPTK Padang'
-                                : 'Portal Akademik Mahasiswa',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.92),
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
+                      ],
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -648,9 +658,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         cat.label,
                         style: TextStyle(
                           fontSize: 12.5,
-                          fontWeight: isSelected
-                              ? FontWeight.w800
-                              : FontWeight.w600,
+                          fontWeight:
+                              isSelected ? FontWeight.w800 : FontWeight.w600,
                           letterSpacing: -0.2,
                           color: isSelected
                               ? Colors.white
@@ -678,8 +687,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       rawEnd = rawEnd.replaceFirst('s.d. ', '').replaceFirst('sd ', '').trim();
 
       if (rawEnd.isEmpty) {
-        final timeStr =
-            pickString(item, ['jam', 'waktu', 'jam_kuliah'], '');
+        final timeStr = pickString(item, ['jam', 'waktu', 'jam_kuliah'], '');
         final parts = timeStr.split(RegExp(r'[-–—~]'));
         if (parts.length >= 2) {
           rawEnd = parts[1].trim();
@@ -714,8 +722,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       rawEnd = rawEnd.replaceFirst('s.d. ', '').replaceFirst('sd ', '').trim();
 
       if (rawStart.isEmpty || rawEnd.isEmpty) {
-        final timeStr =
-            pickString(item, ['jam', 'waktu', 'jam_kuliah'], '');
+        final timeStr = pickString(item, ['jam', 'waktu', 'jam_kuliah'], '');
         final parts = timeStr.split(RegExp(r'[-–—~]'));
         if (parts.length >= 2) {
           if (rawStart.isEmpty) rawStart = parts[0].trim();
@@ -784,8 +791,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     merged.addAll(data);
 
     final ipkRaw = deepFind(merged, ['ipk']);
-    final sksRaw = deepFind(
-        merged, ['total_sks', 'sks', 'sks_lulus', 'sks_kumulatif']);
+    final sksRaw =
+        deepFind(merged, ['total_sks', 'sks', 'sks_lulus', 'sks_kumulatif']);
     final ipkVal = (ipkRaw != null && ipkRaw.toString().trim().isNotEmpty)
         ? ipkRaw.toString()
         : '3.75';
@@ -942,12 +949,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
-                    color:
-                        isLightText ? Colors.white : context.textPrimary,
+                    color: isLightText ? Colors.white : context.textPrimary,
                     letterSpacing: -0.3,
-                    decoration: titleStrikethrough
-                        ? TextDecoration.lineThrough
-                        : null,
+                    decoration:
+                        titleStrikethrough ? TextDecoration.lineThrough : null,
                     decorationColor:
                         isLightText ? Colors.white : context.textPrimary,
                     decorationThickness: 1.8,
@@ -1072,8 +1077,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (userFallback != null) merged.addAll(userFallback);
     merged.addAll(data);
 
-    final sksRaw = deepFind(
-        merged, ['total_sks', 'sks', 'sks_lulus', 'sks_kumulatif']);
+    final sksRaw =
+        deepFind(merged, ['total_sks', 'sks', 'sks_lulus', 'sks_kumulatif']);
     double progress = 0.75;
     if (sksRaw != null) {
       final match = RegExp(r'\d+').firstMatch(sksRaw.toString());
@@ -1132,8 +1137,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
-                        color:
-                            isDark ? Colors.white : const Color(0xFF1C1917),
+                        color: isDark ? Colors.white : const Color(0xFF1C1917),
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -1177,9 +1181,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               value: progress,
               minHeight: 6,
               color: AppColors.upiYellowDeep,
-              backgroundColor: isDark
-                  ? const Color(0xFF2C2C2E)
-                  : const Color(0xFFE2E8F0),
+              backgroundColor:
+                  isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE2E8F0),
             ),
           ),
         ],
@@ -1334,15 +1337,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               Icon(Icons.widgets_outlined,
                   size: 46,
-                  color: context.isDark ? Colors.white38 : Colors.grey.shade400),
+                  color:
+                      context.isDark ? Colors.white38 : Colors.grey.shade400),
               const SizedBox(height: 10),
               Text(
                 'Tidak ada layanan yang sesuai',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color:
-                      context.isDark ? Colors.white70 : Colors.grey.shade600,
+                  color: context.isDark ? Colors.white70 : Colors.grey.shade600,
                 ),
               ),
             ],
@@ -1486,9 +1489,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       BuildContext context, List<Map<String, dynamic>> jadwals,
       {bool isLoading = false}) {
     final now = DateTime.now();
-    final dayNames = [
-      'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'
-    ];
+    final dayNames = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
     final dayLabel = dayNames[now.weekday - 1];
 
     return Column(
@@ -1545,8 +1546,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const SizedBox(width: 12),
                 Text(
                   'Memuat jadwal kuliah hari ini...',
-                  style:
-                      TextStyle(fontSize: 12, color: context.textMuted),
+                  style: TextStyle(fontSize: 12, color: context.textMuted),
                 ),
               ],
             ),
@@ -1622,7 +1622,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: AppColors.upiYellowDeep.withValues(alpha: 0.10),
+                          color:
+                              AppColors.upiYellowDeep.withValues(alpha: 0.10),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: const Icon(Icons.hotel_class_rounded,
@@ -1634,8 +1635,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              context.tr('no_class_title',
-                                  'Tidak ada jadwal kuliah'),
+                              context.tr(
+                                  'no_class_title', 'Tidak ada jadwal kuliah'),
                               style: TextStyle(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 13.5,
@@ -1645,8 +1646,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              context.tr('no_class_subtitle',
-                                  'Selamat istirahat ✨'),
+                              context.tr(
+                                  'no_class_subtitle', 'Selamat istirahat ✨'),
                               style: TextStyle(
                                 fontSize: 11.5,
                                 color: context.textMuted,
@@ -1789,8 +1790,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     boxShadow: isActive
                         ? [
                             BoxShadow(
-                              color:
-                                  AppColors.upiYellowDeep.withValues(alpha: 0.4),
+                              color: AppColors.upiYellowDeep
+                                  .withValues(alpha: 0.4),
                               blurRadius: 8,
                               spreadRadius: 1,
                             ),
@@ -1810,9 +1811,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ? const SizedBox.shrink()
                       : Container(
                           width: 1.5,
-                          color: isDark
-                              ? Colors.white12
-                              : const Color(0xFFD4D8E2),
+                          color:
+                              isDark ? Colors.white12 : const Color(0xFFD4D8E2),
                         ),
                 ),
               ],
@@ -1962,10 +1962,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 7, vertical: 3.5),
                                     decoration: BoxDecoration(
-                                      color: (isDark
-                                              ? Colors.white
-                                              : Colors.black)
-                                          .withValues(alpha: 0.08),
+                                      color:
+                                          (isDark ? Colors.white : Colors.black)
+                                              .withValues(alpha: 0.08),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Row(
@@ -2001,8 +2000,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 fontSize: 15,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: -0.3,
-                                decoration:
-                                    isPassed ? TextDecoration.lineThrough : null,
+                                decoration: isPassed
+                                    ? TextDecoration.lineThrough
+                                    : null,
                                 decorationColor: context.textMuted,
                                 decorationThickness: 1.8,
                               ),
@@ -2094,7 +2094,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (v == null) return;
       final s = v.toString().trim();
       if (s.isEmpty || s == 'null' || s == '-') return;
-      widgets.add(_NeuStatCard(label: label, value: s, icon: icon, color: color));
+      widgets
+          .add(_NeuStatCard(label: label, value: s, icon: icon, color: color));
     }
 
     add('IPK', deepFind(merged, ['ipk']), Icons.school_rounded,
@@ -2103,8 +2104,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Icons.grid_view_rounded, AppColors.green);
     add(
         'Periode',
-        deepFind(
-            merged, ['periode', 'periode_aktif', 'semester', 'smt']),
+        deepFind(merged, ['periode', 'periode_aktif', 'semester', 'smt']),
         Icons.event_note_rounded,
         AppColors.amber);
     return widgets;
@@ -2253,18 +2253,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Text(
                     pickString(
                         n,
-                        [
-                          'isi',
-                          'deskripsi',
-                          'konten',
-                          'keterangan',
-                          'text'
-                        ],
+                        ['isi', 'deskripsi', 'konten', 'keterangan', 'text'],
                         ''),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        fontSize: 12, color: context.textMuted),
+                    style: TextStyle(fontSize: 12, color: context.textMuted),
                   ),
                 ],
               ),
@@ -2277,7 +2270,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ────────────────────────────────────────────────── CTA TAGIHAN (ADAPTIF TEMA)
   Widget _tagihanCta(BuildContext context) {
     final isDark = context.isDark;
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(

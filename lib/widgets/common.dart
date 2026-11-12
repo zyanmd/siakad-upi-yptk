@@ -63,7 +63,8 @@ Future<bool> confirmDialog(
           style: FilledButton.styleFrom(
             backgroundColor: AppColors.red,
             foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           ),
           onPressed: () => Navigator.of(ctx).pop(true),
@@ -96,7 +97,8 @@ Future<void> openExternal(BuildContext context, String url) async {
   }
 }
 
-Future<void> copyText(BuildContext context, String value, [String? message]) async {
+Future<void> copyText(BuildContext context, String value,
+    [String? message]) async {
   await Clipboard.setData(ClipboardData(text: value));
   if (context.mounted) appToast(context, message ?? 'Disalin ke clipboard');
 }
@@ -118,7 +120,8 @@ class LoadingView extends StatelessWidget {
             height: 24,
             child: CircularProgressIndicator(
               strokeWidth: 2.5,
-              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryYellow),
+              valueColor:
+                  AlwaysStoppedAnimation<Color>(AppColors.primaryYellow),
             ),
           ),
           const SizedBox(height: 12),
@@ -147,7 +150,8 @@ class EmptyView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 44, color: context.textMuted.withValues(alpha: 0.5)),
+            Icon(icon,
+                size: 44, color: context.textMuted.withValues(alpha: 0.5)),
             const SizedBox(height: 12),
             Text(
               message ?? 'Tidak ada data untuk ditampilkan.',
@@ -341,16 +345,42 @@ class StatusChip extends StatelessWidget {
   (Color, Color) _colors() {
     final text = '${kind ?? ''} ${label ?? ''}'.toLowerCase();
     const greenWords = [
-      'lunas', 'paid', 'berhasil', 'aktif', 'approve', 'disetujui',
-      'valid', 'success', 'selesai', 'hadir', 'lulus', 'ok',
+      'lunas',
+      'paid',
+      'berhasil',
+      'aktif',
+      'approve',
+      'disetujui',
+      'valid',
+      'success',
+      'selesai',
+      'hadir',
+      'lulus',
+      'ok',
     ];
     const redWords = [
-      'tolak', 'reject', 'gagal', 'blokir', 'nonaktif', 'batal',
-      'expired', 'alpa', 'menolak',
+      'tolak',
+      'reject',
+      'gagal',
+      'blokir',
+      'nonaktif',
+      'batal',
+      'expired',
+      'alpa',
+      'menolak',
     ];
     const amberWords = [
-      'pending', 'waiting', 'proses', 'belum', 'booking', 'resolve',
-      'menunggu', 'review', 'izin', 'sakit', 'tertunda',
+      'pending',
+      'waiting',
+      'proses',
+      'belum',
+      'booking',
+      'resolve',
+      'menunggu',
+      'review',
+      'izin',
+      'sakit',
+      'tertunda',
     ];
     if (greenWords.any((w) => text.contains(w))) {
       return (AppColors.green.withValues(alpha: 0.14), AppColors.green);
@@ -628,28 +658,14 @@ InputDecoration appInput(
 String moneyOrRaw(String key, dynamic v) => formatValue(key, v);
 
 // ═══════════════════════════════════════════════════════════════════
-//  SEAMLESS WAVE CLIPPER (DIPERBAIKI TOTAL)
+//  CLEAN CURVED HEADER CLIPPERS & BACKDROP (GOLDEN YELLOW THEME)
 // ═══════════════════════════════════════════════════════════════════
 
-/// Clipper kurva gelombang asimetris organik yang **SEAMLESS** —
-/// dapat disambung sempurna antar widget/header tanpa celah.
+/// Clipper lengkungan bersih modern pada header kuning emas.
 ///
-/// Karakteristik:
-/// - **Tinggi ujung kiri == tinggi ujung kanan** (`baseY`), sehingga bila
-///   dipakai pada dua header bertumpuk atau disambung ke widget lain,
-///   tidak akan muncul celah/step.
-/// - **C1-continuous**: dua segmen cubic Bezier yang tangen-nya nyambung
-///   di titik tengah (0.5w), sehingga tidak ada "patahan" halus.
-/// - **Natural**: lekukan turun membentuk ombak asimetris (lebih dalam di
-///   kiri-tengah, lalu naik lembut ke kanan) — persis seperti kurva IPB /
-///   header akademik modern.
-///
-/// Parameter:
-/// - [waveHeight]: kedalaman dasar lekukan dari bawah widget (kiri == kanan).
-/// - [waveDip]:    ekstra kedalaman di titik ombak terendah.
-///
-/// **Penting**: `padding.bottom` pada header yang memakai clipper ini
-/// harus `>= waveHeight + waveDip + 8` agar konten tidak tertutup.
+/// Menggunakan satu kurva cubic Bezier mulus tanpa lekukan patah:
+/// sisi kiri lebih penuh ke bawah lalu melengkung halus naik ke kanan,
+/// menyisakan ruang lega untuk pill atau kartu mengambang di bawah header.
 class SeamlessWaveClipper extends CustomClipper<Path> {
   const SeamlessWaveClipper({
     this.waveHeight = 28,
@@ -664,32 +680,23 @@ class SeamlessWaveClipper extends CustomClipper<Path> {
     final w = size.width;
     final h = size.height;
 
-    // Garis dasar lekukan (kiri == kanan) → seamless.
-    final baseY = h - waveHeight;
+    final leftY = (h - (waveHeight * 0.48)).clamp(0.0, h);
+    final rightY = (h - (waveHeight + waveDip * 0.32)).clamp(0.0, h);
 
-    final path = Path()..moveTo(0, 0);
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(0, leftY)
+      ..cubicTo(
+        w * 0.30,
+        h,
+        w * 0.68,
+        (h - waveHeight * 0.24).clamp(0.0, h),
+        w,
+        rightY,
+      )
+      ..lineTo(w, 0)
+      ..close();
 
-    // Sisi kiri turun lurus ke awal lekukan.
-    path.lineTo(0, baseY);
-
-    // ── Segmen 1: turun membentuk lembah ombak (0 → 0.5w) ──
-    path.cubicTo(
-      w * 0.16, baseY + waveDip * 1.55, // cp1: mulai turun
-      w * 0.34, baseY + waveDip * 2.00, // cp2: titik terendah
-      w * 0.50, baseY + waveDip * 1.05, // akhir segmen 1 (tengah)
-    );
-
-    // ── Segmen 2: naik kembali ke kanan (0.5w → w) ──
-    // Tangen di titik sambung (0.5w) searah dengan segmen 1 → C1-continuous.
-    path.cubicTo(
-      w * 0.66, baseY + waveDip * 0.10, // cp1: lanjut naik
-      w * 0.84, baseY - waveDip * 0.05, // cp2: sedikit di atas base
-      w,        baseY,                  // akhir: kembali ke baseY (sama dgn kiri)
-    );
-
-    // Naik ke kanan atas & tutup path.
-    path.lineTo(w, 0);
-    path.close();
     return path;
   }
 
@@ -698,9 +705,109 @@ class SeamlessWaveClipper extends CustomClipper<Path> {
       oldClipper.waveHeight != waveHeight || oldClipper.waveDip != waveDip;
 }
 
+/// Clipper hero asimetris yang menyapu lembut dari kiri bawah ke kanan atas
+/// (terinspirasi desain clean onboarding/login modern, tetap bernuansa emas).
+class LoginHeroCurveClipper extends CustomClipper<Path> {
+  const LoginHeroCurveClipper();
+
+  @override
+  Path getClip(Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    return Path()
+      ..moveTo(0, 0)
+      ..lineTo(0, (h - 10).clamp(0.0, h))
+      ..cubicTo(
+        w * 0.42,
+        (h - 4).clamp(0.0, h),
+        w * 0.68,
+        (h - 76).clamp(0.0, h),
+        w,
+        (h - 94).clamp(0.0, h),
+      )
+      ..lineTo(w, 0)
+      ..close();
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
+}
+
+/// Lapisan dekoratif lengkungan transparan halus di dalam header kuning emas
+/// agar tampilan bersih berdimensi tanpa mengubah warna dasar emas.
+class GoldenHeaderBackdrop extends StatelessWidget {
+  const GoldenHeaderBackdrop({super.key, this.heroMode = false});
+
+  final bool heroMode;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _GoldenHeaderWavesPainter(heroMode: heroMode),
+      child: const SizedBox.expand(),
+    );
+  }
+}
+
+class _GoldenHeaderWavesPainter extends CustomPainter {
+  const _GoldenHeaderWavesPainter({required this.heroMode});
+
+  final bool heroMode;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    // Lengkungan emas lebih gelap tipis di bagian kanan atas -> kiri bawah
+    final darkSweep = Paint()
+      ..color = Colors.black.withValues(alpha: heroMode ? 0.08 : 0.065)
+      ..style = PaintingStyle.fill;
+
+    final path1 = Path()
+      ..moveTo(w * 0.35, 0)
+      ..quadraticBezierTo(w * 0.56, h * 0.46, w, h * 0.54)
+      ..lineTo(w, 0)
+      ..close();
+    canvas.drawPath(path1, darkSweep);
+
+    // Lengkungan sorotan lembut di sisi kiri
+    final lightSweep = Paint()
+      ..color = Colors.white.withValues(alpha: heroMode ? 0.11 : 0.08)
+      ..style = PaintingStyle.fill;
+
+    final path2 = Path()
+      ..moveTo(0, h * (heroMode ? 0.28 : 0.18))
+      ..quadraticBezierTo(w * 0.34, h * 0.55, w * 0.18, h)
+      ..lineTo(0, h)
+      ..close();
+    canvas.drawPath(path2, lightSweep);
+
+    if (heroMode) {
+      final accentSweep = Paint()
+        ..color = Colors.black.withValues(alpha: 0.055)
+        ..style = PaintingStyle.fill;
+
+      final path3 = Path()
+        ..moveTo(0, h * 0.62)
+        ..quadraticBezierTo(w * 0.48, h * 0.42, w, h * 0.72)
+        ..lineTo(w, h)
+        ..lineTo(0, h)
+        ..close();
+      canvas.drawPath(path3, accentSweep);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _GoldenHeaderWavesPainter oldDelegate) =>
+      oldDelegate.heroMode != heroMode;
+}
+
 /// Helper: tinggi total area lekukan yang perlu diakomodasi sebagai padding.
 /// Gunakan ini untuk menghitung `padding.bottom` header agar konsisten.
-double seamlessWaveReservedHeight({double waveHeight = 28, double waveDip = 14}) =>
+double seamlessWaveReservedHeight(
+        {double waveHeight = 28, double waveDip = 14}) =>
     waveHeight + waveDip + 8;
 
 /// Padding bawah standar untuk SEMUA header berlekuk.

@@ -17,7 +17,7 @@ const _yellowHeaderGradient = [
 ];
 
 /// Halaman Absen QR SIAKAD UPI YPTK
-/// Memindai kamera langsung atau memasukkan token QR yang ditampilkan dosen saat perkuliahan.
+/// Memindai QR presensi dosen langsung menggunakan kamera dengan kontrol zoom.
 class AbsenQrScreen extends StatefulWidget {
   const AbsenQrScreen({super.key});
 
@@ -26,7 +26,6 @@ class AbsenQrScreen extends StatefulWidget {
 }
 
 class _AbsenQrScreenState extends State<AbsenQrScreen> with SingleTickerProviderStateMixin {
-  final TextEditingController _tokenCtrl = TextEditingController();
   late final MobileScannerController _scannerController;
   late final AnimationController _animController;
   late final Animation<double> _scanAnimation;
@@ -34,6 +33,8 @@ class _AbsenQrScreenState extends State<AbsenQrScreen> with SingleTickerProvider
   bool _isLoading = false;
   bool _isCameraActive = true;
   bool _isTorchOn = false;
+  double _zoomScale = 0.0;
+  double _baseZoomScale = 0.0;
   String? _successMessage;
   String? _courseName;
   String? _errorMessage;
@@ -51,6 +52,7 @@ class _AbsenQrScreenState extends State<AbsenQrScreen> with SingleTickerProvider
       facing: CameraFacing.back,
       formats: const [BarcodeFormat.qrCode],
       torchEnabled: false,
+      autoZoom: true,
     );
 
     _animController = AnimationController(
@@ -65,11 +67,22 @@ class _AbsenQrScreenState extends State<AbsenQrScreen> with SingleTickerProvider
 
   @override
   void dispose() {
-    _tokenCtrl.dispose();
     _countdownTimer?.cancel();
     _animController.dispose();
     _scannerController.dispose();
     super.dispose();
+  }
+
+  Future<void> _setZoom(double value) async {
+    final clamped = value.clamp(0.0, 1.0);
+    setState(() {
+      _zoomScale = clamped;
+    });
+    if (_isCameraActive) {
+      try {
+        await _scannerController.setZoomScale(clamped);
+      } catch (_) {}
+    }
   }
 
   void _startCountdown(int seconds) {
@@ -109,7 +122,6 @@ class _AbsenQrScreenState extends State<AbsenQrScreen> with SingleTickerProvider
       final raw = barcode.rawValue?.trim();
       if (raw != null && raw.isNotEmpty) {
         _lastScannedTime = now;
-        _tokenCtrl.text = raw;
         _submitToken(raw);
         break;
       }
@@ -120,7 +132,7 @@ class _AbsenQrScreenState extends State<AbsenQrScreen> with SingleTickerProvider
     final cleanToken = token.trim();
     if (cleanToken.isEmpty) {
       setState(() {
-        _errorMessage = 'Silakan masukkan atau scan kode QR.';
+        _errorMessage = 'Silakan arahkan kamera ke kode QR.';
         _successMessage = null;
       });
       return;
@@ -164,7 +176,6 @@ class _AbsenQrScreenState extends State<AbsenQrScreen> with SingleTickerProvider
           _isLoading = false;
           _successMessage = msg.isNotEmpty ? msg : 'Presensi berhasil dicatat.';
           _courseName = course;
-          _tokenCtrl.clear();
         });
         _showSuccessDialog(_successMessage!, _courseName);
       } else {
@@ -273,57 +284,6 @@ class _AbsenQrScreenState extends State<AbsenQrScreen> with SingleTickerProvider
     );
   }
 
-  void _showManualInputDialog() {
-    final ctrl = TextEditingController(text: _tokenCtrl.text);
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: const Text('Input Token QR Manual', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Jika kamera tidak dapat memindai, Anda dapat menempelkan token kode QR di bawah:',
-              style: TextStyle(fontSize: 13, color: AppColors.grey),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: ctrl,
-              maxLines: 3,
-              decoration: InputDecoration(
-                hintText: 'Tempel token QR di sini...',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.upiYellowDeep,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () {
-              final val = ctrl.text.trim();
-              Navigator.of(ctx).pop();
-              if (val.isNotEmpty) {
-                _tokenCtrl.text = val;
-                _submitToken(val);
-              }
-            },
-            child: const Text('Kirim'),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = context.isDark;
@@ -382,11 +342,6 @@ class _AbsenQrScreenState extends State<AbsenQrScreen> with SingleTickerProvider
                               ),
                             ],
                           ),
-                          IconButton(
-                            onPressed: _showManualInputDialog,
-                            icon: const Icon(Icons.keyboard_alt_outlined, color: Colors.white),
-                            tooltip: 'Input Manual',
-                          ),
                         ],
                       ),
                       const SizedBox(height: 6),
@@ -444,60 +399,76 @@ class _AbsenQrScreenState extends State<AbsenQrScreen> with SingleTickerProvider
                           ),
                           const SizedBox(height: 18),
 
-                          // LIVE CAMERA SCANNER VIEWPORT
-                          Container(
-                            height: 310,
-                            decoration: BoxDecoration(
-                              color: Colors.black,
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(16),
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  // Live Mobile Scanner
-                                  if (_isCameraActive)
-                                    MobileScanner(
-                                      controller: _scannerController,
-                                      fit: BoxFit.cover,
-                                      onDetect: _onQrDetected,
-                                      errorBuilder: (context, error) {
-                                        return Center(
-                                          child: Padding(
-                                            padding: const EdgeInsets.all(20),
-                                            child: Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                const Icon(
-                                                  Icons.no_photography_outlined,
-                                                  color: Colors.white70,
-                                                  size: 44,
-                                                ),
-                                                const SizedBox(height: 12),
-                                                const Text(
-                                                  'Akses Kamera Terhalang',
-                                                  style: TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 15,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 6),
-                                                Text(
-                                                  'Pastikan izin kamera telah diberikan di pengaturan perangkat Anda.\n${error.errorDetails?.message ?? error.errorCode.name}',
-                                                  style: const TextStyle(
+                          // LIVE CAMERA SCANNER VIEWPORT (Pinch-to-Zoom & Tap-to-Focus)
+                          GestureDetector(
+                            onScaleStart: _isCameraActive
+                                ? (_) {
+                                    _baseZoomScale = _zoomScale;
+                                  }
+                                : null,
+                            onScaleUpdate: _isCameraActive
+                                ? (details) {
+                                    if (details.scale == 1.0) return;
+                                    final nextZoom =
+                                        (_baseZoomScale + (details.scale - 1.0) * 0.45)
+                                            .clamp(0.0, 1.0);
+                                    _setZoom(nextZoom);
+                                  }
+                                : null,
+                            child: Container(
+                              height: 310,
+                              decoration: BoxDecoration(
+                                color: Colors.black,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    // Live Mobile Scanner
+                                    if (_isCameraActive)
+                                      MobileScanner(
+                                        controller: _scannerController,
+                                        fit: BoxFit.cover,
+                                        tapToFocus: true,
+                                        onDetect: _onQrDetected,
+                                        errorBuilder: (context, error) {
+                                          return Center(
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(20),
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(
+                                                    Icons.no_photography_outlined,
                                                     color: Colors.white70,
-                                                    fontSize: 12,
+                                                    size: 44,
                                                   ),
-                                                  textAlign: TextAlign.center,
-                                                ),
-                                              ],
+                                                  const SizedBox(height: 12),
+                                                  const Text(
+                                                    'Akses Kamera Terhalang',
+                                                    style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 15,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 6),
+                                                  Text(
+                                                    'Pastikan izin kamera telah diberikan di pengaturan perangkat Anda.\n${error.errorDetails?.message ?? error.errorCode.name}',
+                                                    style: const TextStyle(
+                                                      color: Colors.white70,
+                                                      fontSize: 12,
+                                                    ),
+                                                    textAlign: TextAlign.center,
+                                                  ),
+                                                ],
+                                              ),
                                             ),
-                                          ),
-                                        );
-                                      },
-                                    )
+                                          );
+                                        },
+                                      )
                                   else
                                     const Center(
                                       child: Column(
@@ -644,16 +615,130 @@ class _AbsenQrScreenState extends State<AbsenQrScreen> with SingleTickerProvider
                                               tooltip: 'Ganti Kamera',
                                               onPressed: () async {
                                                 await _scannerController.switchCamera();
+                                                setState(() {
+                                                  _zoomScale = 0.0;
+                                                });
                                               },
                                             ),
                                           ),
                                         ],
                                       ),
                                     ),
+
+                                  // Quick Zoom Level Pill on bottom overlay
+                                  if (_isCameraActive)
+                                    Positioned(
+                                      bottom: 10,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withValues(alpha: 0.65),
+                                          borderRadius: BorderRadius.circular(20),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            for (final preset in const [
+                                              ('1x', 0.0),
+                                              ('1.5x', 0.25),
+                                              ('2x', 0.5),
+                                              ('3x', 0.8),
+                                            ])
+                                              GestureDetector(
+                                                onTap: () => _setZoom(preset.$2),
+                                                child: Container(
+                                                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                                                  padding: const EdgeInsets.symmetric(
+                                                      horizontal: 9, vertical: 4),
+                                                  decoration: BoxDecoration(
+                                                    color: (_zoomScale - preset.$2).abs() < 0.12
+                                                        ? AppColors.upiYellow
+                                                        : Colors.transparent,
+                                                    borderRadius: BorderRadius.circular(14),
+                                                  ),
+                                                  child: Text(
+                                                    preset.$1,
+                                                    style: TextStyle(
+                                                      fontSize: 11.5,
+                                                      fontWeight: FontWeight.w800,
+                                                      color: (_zoomScale - preset.$2).abs() < 0.12
+                                                          ? Colors.black87
+                                                          : Colors.white,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
                                 ],
                               ),
                             ),
                           ),
+                          ),
+
+                          // Zoom Slider Control Bar
+                          if (_isCameraActive) ...[
+                            const SizedBox(height: 10),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  IconButton(
+                                    onPressed: _zoomScale <= 0.0
+                                        ? null
+                                        : () => _setZoom(_zoomScale - 0.15),
+                                    icon: const Icon(Icons.zoom_out_rounded, size: 20),
+                                    tooltip: 'Perkecil',
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                  Expanded(
+                                    child: SliderTheme(
+                                      data: SliderTheme.of(context).copyWith(
+                                        trackHeight: 3,
+                                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+                                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                                      ),
+                                      child: Slider(
+                                        value: _zoomScale,
+                                        min: 0.0,
+                                        max: 1.0,
+                                        activeColor: AppColors.upiYellowDeep,
+                                        inactiveColor: isDark ? Colors.white24 : Colors.black12,
+                                        onChanged: (v) => _setZoom(v),
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    onPressed: _zoomScale >= 1.0
+                                        ? null
+                                        : () => _setZoom(_zoomScale + 0.15),
+                                    icon: const Icon(Icons.zoom_in_rounded, size: 20),
+                                    tooltip: 'Perbesar',
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                  SizedBox(
+                                    width: 38,
+                                    child: Text(
+                                      '${(_zoomScale * 100).round()}%',
+                                      textAlign: TextAlign.end,
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: context.textMuted,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
 
                           const SizedBox(height: 16),
 
@@ -677,6 +762,7 @@ class _AbsenQrScreenState extends State<AbsenQrScreen> with SingleTickerProvider
                                           setState(() {
                                             _isCameraActive = true;
                                             _errorMessage = null;
+                                            _zoomScale = 0.0;
                                           });
                                           await _scannerController.start();
                                         },
@@ -705,6 +791,8 @@ class _AbsenQrScreenState extends State<AbsenQrScreen> with SingleTickerProvider
                                       : () async {
                                           setState(() {
                                             _isCameraActive = false;
+                                            _zoomScale = 0.0;
+                                            _isTorchOn = false;
                                           });
                                           await _scannerController.stop();
                                         },
@@ -819,68 +907,6 @@ class _AbsenQrScreenState extends State<AbsenQrScreen> with SingleTickerProvider
                               ),
                             ),
                           ],
-
-                          const SizedBox(height: 20),
-                          const Divider(),
-                          const SizedBox(height: 12),
-
-                          // Manual input section
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: _tokenCtrl,
-                                  decoration: InputDecoration(
-                                    hintText: 'Atau tempel token QR di sini...',
-                                    hintStyle: const TextStyle(fontSize: 13),
-                                    isDense: true,
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              IconButton(
-                                onPressed: () async {
-                                  final data = await Clipboard.getData(Clipboard.kTextPlain);
-                                  if (data?.text != null) {
-                                    _tokenCtrl.text = data!.text!.trim();
-                                  }
-                                },
-                                icon: const Icon(Icons.content_paste_rounded),
-                                tooltip: 'Tempel dari Clipboard',
-                              ),
-                              const SizedBox(width: 4),
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.upiYellowDeep,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                ),
-                                onPressed: _isLoading || _retryCountdown > 0
-                                    ? null
-                                    : () => _submitToken(_tokenCtrl.text),
-                                child: _isLoading
-                                    ? const SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                    : const Text(
-                                        'Kirim',
-                                        style: TextStyle(fontWeight: FontWeight.w700),
-                                      ),
-                              ),
-                            ],
-                          ),
                         ],
                       ),
                     ),

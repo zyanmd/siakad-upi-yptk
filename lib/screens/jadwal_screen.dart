@@ -1,19 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../services/api_client.dart';
+import '../state/auth_provider.dart';
 import '../state/periode_provider.dart';
 import '../theme/app_theme.dart';
+import '../utils/format.dart';
 import '../utils/smart.dart';
-import '../widgets/async_page.dart';
 import '../widgets/common.dart';
-import '../widgets/gradient_header.dart';
 import '../widgets/periode_dropdown.dart';
 import '../widgets/smart_detail_page.dart';
 import 'jadwal_cetak_screen.dart';
 
+// ── UPI YPTK Golden Yellow Gradient ──
+const _yellowHeaderGradient = [
+  Color(0xFFE5A620), // Bright Academic Gold
+  Color(0xFFD48B08), // UPI Yellow
+  Color(0xFFB87500), // Deep Academic Gold
+];
+
 /// Jadwal kuliah per periode, dikelompokkan berdasarkan hari
-/// dengan pemilih periode (dropdown), metrik perkuliahan, dan tautan grup kelas.
+/// dengan header kuning lengkung khas UPI YPTK, floating periode pill,
+/// metrik perkuliahan, dan tautan grup kelas.
 class JadwalScreen extends StatefulWidget {
   const JadwalScreen({super.key});
 
@@ -22,10 +31,11 @@ class JadwalScreen extends StatefulWidget {
 }
 
 class _JadwalScreenState extends State<JadwalScreen> {
-  final _pageKey = GlobalKey<AsyncPageState<Map<String, dynamic>>>();
   PeriodeProvider? _pp;
   String? _selectedPeriode;
   List<PeriodeOption> _periodeOpts = [];
+  Future<Map<String, dynamic>>? _future;
+  Map<String, dynamic>? _cachedData;
 
   @override
   void initState() {
@@ -38,12 +48,13 @@ class _JadwalScreenState extends State<JadwalScreen> {
       if (_pp!.items.isNotEmpty) {
         _periodeOpts = List.from(_pp!.items);
       }
+      _reload();
       _pp!.ensureLoaded().then((_) {
         if (mounted) {
           if (_periodeOpts.isEmpty && _pp!.items.isNotEmpty) {
             _periodeOpts = List.from(_pp!.items);
           }
-          _pageKey.currentState?.reload();
+          _reload();
         }
       });
     });
@@ -54,8 +65,14 @@ class _JadwalScreenState extends State<JadwalScreen> {
       setState(() {
         _selectedPeriode = _pp!.value;
       });
-      _pageKey.currentState?.reload();
+      _reload();
     }
+  }
+
+  void _reload() {
+    setState(() {
+      _future = _load();
+    });
   }
 
   @override
@@ -92,10 +109,11 @@ class _JadwalScreenState extends State<JadwalScreen> {
       }
     }
 
-    // Refresh UI dropdown jika opsi baru saja termuat
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() {});
-    });
+    if (mounted) {
+      setState(() {
+        _cachedData = mapData;
+      });
+    }
 
     return mapData;
   }
@@ -104,9 +122,10 @@ class _JadwalScreenState extends State<JadwalScreen> {
     if (newPeriode == null || newPeriode == _selectedPeriode) return;
     setState(() {
       _selectedPeriode = newPeriode;
+      _cachedData = null;
     });
     context.read<PeriodeProvider>().set(newPeriode);
-    _pageKey.currentState?.reload();
+    _reload();
   }
 
   void _cetak() {
@@ -122,38 +141,358 @@ class _JadwalScreenState extends State<JadwalScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Pastikan value dropdown valid
+    final auth = context.watch<AuthProvider>();
+    final isDark = context.isDark;
+
+    final metrics = _cachedData != null
+        ? asMap(_cachedData!['metrics'])
+        : <String, dynamic>{};
+    final totalSks = pickString(metrics, ['total_sks', 'sks'], '')
+        .replaceAll(' terjadwal', '');
+
+    return Scaffold(
+      backgroundColor: context.bg,
+      body: Column(
+        children: [
+          // ──── HEADER KUNING DENGAN LEKUKAN BERSAMBUNG & FLOATING PERIODE PILL ────
+          Stack(
+            alignment: Alignment.bottomCenter,
+            clipBehavior: Clip.none,
+            children: [
+              _buildCurvedYellowHeader(
+                nama: auth.nama,
+                nim: auth.nim,
+                totalSks: totalSks,
+              ),
+              Positioned(
+                bottom: -18,
+                left: 0,
+                right: 0,
+                child: _buildFloatingPeriodePill(context, isDark),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+
+          // ──── BODY KONTEN ────
+          Expanded(
+            child: FutureBuilder<Map<String, dynamic>>(
+              future: _future,
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting &&
+                    _cachedData == null) {
+                  return const Center(
+                    child: LoadingView(label: 'Memuat jadwal perkuliahan...'),
+                  );
+                }
+                if (snap.hasError && _cachedData == null) {
+                  return ErrorRetry(
+                    message: errorText(snap.error!),
+                    onRetry: _reload,
+                  );
+                }
+                if (snap.hasData) {
+                  _cachedData = snap.data;
+                }
+                if (_cachedData == null) {
+                  return const EmptyView(
+                    icon: Icons.event_busy_rounded,
+                    message: 'Data jadwal belum tersedia.',
+                  );
+                }
+                return RefreshIndicator(
+                  color: AppColors.upiYellowDeep,
+                  backgroundColor: context.card,
+                  onRefresh: () async {
+                    _reload();
+                    await _future;
+                  },
+                  child: _body(context, _cachedData!),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ────────────────────────────────────────────────── HEADER KUNING DENGAN LEKUKAN BERSAMBUNG
+  Widget _buildCurvedYellowHeader({
+    required String nama,
+    required String nim,
+    required String totalSks,
+  }) {
+    final canPop = Navigator.of(context).canPop();
+
+    return ClipPath(
+      clipper: const SeamlessWaveClipper(),
+      child: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: _yellowHeaderGradient,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: Stack(
+          children: [
+            const Positioned.fill(child: GoldenHeaderBackdrop()),
+            SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                    22, 12, 22, kCurvedHeaderBottomPadding),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Top Row: Back + Title + Action Buttons (Cetak, Refresh)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (canPop) ...[
+                              IconButton(
+                                onPressed: () =>
+                                    Navigator.of(context).maybePop(),
+                                icon: const Icon(Icons.arrow_back_rounded,
+                                    color: Colors.white, size: 24),
+                                tooltip: 'Kembali',
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                            const Text(
+                              'Jadwal Kuliah',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 21,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IosBounceTap(
+                              onTap: () {
+                                HapticFeedback.lightImpact();
+                                _cetak();
+                              },
+                              child: Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.22),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color:
+                                          Colors.black.withValues(alpha: 0.10),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(Icons.print_rounded,
+                                    size: 20, color: Colors.white),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IosBounceTap(
+                              onTap: () {
+                                HapticFeedback.lightImpact();
+                                _reload();
+                                appToast(context,
+                                    'Memuat ulang jadwal perkuliahan...');
+                              },
+                              child: Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.22),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color:
+                                          Colors.black.withValues(alpha: 0.10),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(Icons.refresh_rounded,
+                                    size: 20, color: Colors.white),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Profile Avatar + Name & NIM + SKS Badge
+                    Row(
+                      children: [
+                        Container(
+                          width: 54,
+                          height: 54,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withValues(alpha: 0.18),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.85),
+                              width: 1.8,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.12),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: Text(
+                              initialsOf(nama),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                nama.isNotEmpty ? nama : 'Mahasiswa UPI YPTK',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 17.5,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.4,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  Text(
+                                    nim.isNotEmpty ? 'NIM $nim' : '-',
+                                    style: const TextStyle(
+                                      color: Color(0xE6FFFFFF),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      letterSpacing: 0.2,
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 1.5),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          Colors.white.withValues(alpha: 0.22),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Text(
+                                      'UPI YPTK',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.3,
+                                      ),
+                                    ),
+                                  ),
+                                  if (totalSks.isNotEmpty && totalSks != '-')
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 1.5),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.25),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        totalSks,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 0.3,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ────────────────────────────────────────────────── FLOATING PERIODE PILL
+  Widget _buildFloatingPeriodePill(BuildContext context, bool isDark) {
     final activeValue = _periodeOpts.any((o) => o.value == _selectedPeriode)
         ? _selectedPeriode
-        : (_periodeOpts.isNotEmpty ? _periodeOpts.first.value : _selectedPeriode);
+        : (_periodeOpts.isNotEmpty
+            ? _periodeOpts.first.value
+            : _selectedPeriode);
 
-    return AsyncPage<Map<String, dynamic>>(
-      key: _pageKey,
-      title: 'Jadwal Kuliah',
-      subtitle: 'Jadwal perkuliahan semester berjalan',
-      load: _load,
-      headerActions: [
-        HeaderActionButton(
-          icon: Icons.print_rounded,
-          tooltip: 'Cetak Jadwal',
-          onPressed: _cetak,
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(
+          color: context.card,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: isDark
+                  ? Colors.black.withValues(alpha: 0.40)
+                  : Colors.black.withValues(alpha: 0.08),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-      ],
-      headerExtras: _periodeOpts.isNotEmpty
-          ? PillDropdown(
-              value: activeValue,
-              hint: 'Pilih Periode',
-              items: [
-                for (final o in _periodeOpts)
-                  DropdownMenuItem<String>(
-                    value: o.value,
-                    child: Text(o.label),
-                  ),
-              ],
-              onChanged: _onSelectPeriode,
-            )
-          : const PeriodeSelector(),
-      builder: (context, data) => _body(context, data),
+        child: _periodeOpts.isNotEmpty
+            ? PillDropdown(
+                value: activeValue,
+                hint: 'Pilih Periode',
+                items: [
+                  for (final o in _periodeOpts)
+                    DropdownMenuItem<String>(
+                      value: o.value,
+                      child: Text(o.label),
+                    ),
+                ],
+                onChanged: _onSelectPeriode,
+              )
+            : const PeriodeSelector(),
+      ),
     );
   }
 
@@ -170,14 +509,22 @@ class _JadwalScreenState extends State<JadwalScreen> {
     final ordered = <String, List<Map<String, dynamic>>>{};
 
     const dayOrder = [
-      'senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu', 'minggu'
+      'senin',
+      'selasa',
+      'rabu',
+      'kamis',
+      'jumat',
+      'sabtu',
+      'minggu'
     ];
 
     if (groups.isNotEmpty) {
       final keys = groups.keys.toList();
       keys.sort((a, b) {
-        final ia = dayOrder.indexOf(a.toLowerCase().trim());
-        final ib = dayOrder.indexOf(b.toLowerCase().trim());
+        final na = a.toLowerCase().replaceAll("'", '').trim();
+        final nb = b.toLowerCase().replaceAll("'", '').trim();
+        final ia = dayOrder.indexOf(na);
+        final ib = dayOrder.indexOf(nb);
         if (ia == -1 && ib == -1) return 0;
         if (ia == -1) return 1;
         if (ib == -1) return -1;
@@ -193,15 +540,14 @@ class _JadwalScreenState extends State<JadwalScreen> {
       }
     }
 
-    final periode = _selectedPeriode ??
-        context.read<PeriodeProvider>().value ??
-        '';
+    final periode =
+        _selectedPeriode ?? context.read<PeriodeProvider>().value ?? '';
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
       children: [
         // ============================================================
-        // 1. HEADER CARD: Dropdown Periode & Metrik Jadwal
+        // 1. OVERVIEW CARD: Metrik Jadwal & Status Pengingat
         // ============================================================
         _buildPeriodeOverviewCard(context, data),
 
@@ -254,15 +600,16 @@ class _JadwalScreenState extends State<JadwalScreen> {
     final tglMulai = pickString(data, ['tanggal_mulai'], '');
     final tglSelesai = pickString(data, ['tanggal_selesai'], '');
 
-    final activeValue = _periodeOpts.any((o) => o.value == _selectedPeriode)
-        ? _selectedPeriode
-        : (_periodeOpts.isNotEmpty ? _periodeOpts.first.value : null);
+    final activeLabel = _periodeOpts
+        .where((o) => o.value == _selectedPeriode)
+        .map((o) => o.label)
+        .firstOrNull;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: context.card,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: AppColors.upiYellowDeep.withValues(alpha: 0.25),
         ),
@@ -277,7 +624,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Row Dropdown Periode & Status KRS
+          // Row Periode & Status KRS
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -308,48 +655,19 @@ class _JadwalScreenState extends State<JadwalScreen> {
                         color: context.textMuted,
                       ),
                     ),
-                    if (_periodeOpts.isNotEmpty)
-                      DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: activeValue,
-                          isExpanded: true,
-                          isDense: true,
-                          dropdownColor: context.card,
-                          borderRadius: BorderRadius.circular(12),
-                          icon: const Icon(
-                            Icons.keyboard_arrow_down_rounded,
-                            size: 20,
-                            color: AppColors.upiYellowDeep,
-                          ),
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w800,
-                            color: context.textPrimary,
-                          ),
-                          items: _periodeOpts.map((o) {
-                            return DropdownMenuItem<String>(
-                              value: o.value,
-                              child: Text(
-                                o.label,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: _onSelectPeriode,
-                        ),
-                      )
-                    else
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          pickString(data, ['periode'], _selectedPeriode ?? '-'),
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w800,
-                            color: context.textPrimary,
-                          ),
-                        ),
+                    const SizedBox(height: 2),
+                    Text(
+                      activeLabel ??
+                          pickString(
+                              data, ['periode'], _selectedPeriode ?? '-'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w800,
+                        color: context.textPrimary,
                       ),
+                    ),
                   ],
                 ),
               ),
@@ -453,7 +771,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          // Badge Pengingat Kuliah Otomatis + Tombol Tes
+          // Badge Pengingat Kuliah Otomatis (15 Menit Sebelum & Saat Kuliah Dimulai)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             decoration: BoxDecoration(
@@ -474,7 +792,7 @@ class _JadwalScreenState extends State<JadwalScreen> {
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Pengingat Kuliah Aktif (15 Menit Sebelum Jam Kuliah)',
+                    'Pengingat Kuliah Aktif (15 Menit Sebelum & Saat Kuliah Dimulai)',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -593,9 +911,9 @@ class _JadwalScreenState extends State<JadwalScreen> {
         title: 'Detail Jadwal',
         initialData: item,
         load: () => context.read<ApiClient>().get(
-              '/api/akademik/jadwal/detail/$token',
-              query: {'periode': periode},
-            ),
+          '/api/akademik/jadwal/detail/$token',
+          query: {'periode': periode},
+        ),
       ),
     ));
   }
@@ -761,7 +1079,8 @@ class _SessionCard extends StatelessWidget {
           ),
 
           // Dosen Pengampu & Grup WA
-          if (dosen.isNotEmpty || (waUrl.isNotEmpty && waUrl.startsWith('http'))) ...[
+          if (dosen.isNotEmpty ||
+              (waUrl.isNotEmpty && waUrl.startsWith('http'))) ...[
             const SizedBox(height: 10),
             const Divider(height: 1),
             const SizedBox(height: 8),

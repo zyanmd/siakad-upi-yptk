@@ -15,7 +15,8 @@ class CurvedHeaderClipper extends CustomClipper<Path> {
 
   @override
   Path getClip(Size size) =>
-      SeamlessWaveClipper(waveHeight: waveHeight, waveDip: waveDip).getClip(size);
+      SeamlessWaveClipper(waveHeight: waveHeight, waveDip: waveDip)
+          .getClip(size);
 
   @override
   bool shouldReclip(covariant CurvedHeaderClipper oldClipper) =>
@@ -61,67 +62,73 @@ class CurvedGradientHeader extends StatelessWidget {
             end: Alignment.bottomRight,
           ),
         ),
-        child: SafeArea(
-          bottom: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(22, 12, 22, kCurvedHeaderBottomPadding),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Navigation Bar
-                Row(
+        child: Stack(
+          children: [
+            const Positioned.fill(child: GoldenHeaderBackdrop()),
+            SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                    22, 12, 22, kCurvedHeaderBottomPadding),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (showBackButton)
-                      IconButton(
-                        onPressed: () {
-                          Navigator.of(context).maybePop();
-                        },
-                        icon: const Icon(
-                          Icons.arrow_back_rounded,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                        tooltip: 'Kembali',
+                    // Navigation Bar
+                    Row(
+                      children: [
+                        if (showBackButton)
+                          IconButton(
+                            onPressed: () {
+                              Navigator.of(context).maybePop();
+                            },
+                            icon: const Icon(
+                              Icons.arrow_back_rounded,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                            tooltip: 'Kembali',
+                          ),
+                        const Spacer(),
+                        if (actions != null) ...actions!,
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Title & Subtitle
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 32,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -1,
+                              height: 1.1,
+                            ),
+                          ),
+                          if (subtitle != null) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              subtitle!,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.90),
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                    const Spacer(),
-                    if (actions != null) ...actions!,
+                    ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                // Title & Subtitle
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 32,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -1,
-                          height: 1.1,
-                        ),
-                      ),
-                      if (subtitle != null) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          subtitle!,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.90),
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: -0.3,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
