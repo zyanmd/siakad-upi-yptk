@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../services/api_client.dart';
+import '../services/notification_service.dart';
 import '../state/auth_provider.dart';
 import '../state/periode_provider.dart';
 import '../theme/app_theme.dart';
@@ -772,35 +773,52 @@ class _JadwalScreenState extends State<JadwalScreen> {
           ),
           const SizedBox(height: 12),
           // Badge Pengingat Kuliah Otomatis (15 Menit Sebelum & Saat Kuliah Dimulai)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            decoration: BoxDecoration(
-              color: AppColors.green.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: AppColors.green.withValues(alpha: 0.25),
-                width: 0.8,
-              ),
-            ),
-            child: const Row(
-              children: [
-                Icon(
-                  Icons.notifications_active_rounded,
-                  size: 15,
-                  color: AppColors.green,
+          GestureDetector(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              NotificationService.instance.playTestSound();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Memutar suara notifikasi pengingat kuliah...'),
+                  duration: Duration(seconds: 2),
                 ),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Pengingat Kuliah Aktif (15 Menit Sebelum & Saat Kuliah Dimulai)',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.green,
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                color: AppColors.green.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: AppColors.green.withValues(alpha: 0.25),
+                  width: 0.8,
+                ),
+              ),
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.notifications_active_rounded,
+                    size: 15,
+                    color: AppColors.green,
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Pengingat Kuliah Aktif (Suara SIAKAD Aktif • 15 Menit & Saat Mulai)',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.green,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                  Icon(
+                    Icons.volume_up_rounded,
+                    size: 14,
+                    color: AppColors.green,
+                  ),
+                ],
+              ),
             ),
           ),
         ],

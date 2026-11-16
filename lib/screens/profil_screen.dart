@@ -607,7 +607,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
                                                     .withValues(alpha: 0.3)),
                                           ),
                                           child: const Text(
-                                            'v1.0.9',
+                                            'v1.0.10',
                                             style: TextStyle(
                                               fontSize: 9.5,
                                               fontWeight: FontWeight.w800,

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../services/notification_service.dart';
 import '../state/app_update_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_strings.dart';
@@ -21,7 +23,8 @@ class TentangAplikasiScreen extends StatelessWidget {
         children: [
           GradientHeader(
             title: context.tr('about_section', 'Tentang Aplikasi'),
-            subtitle: context.tr('about_app_desc', 'Informasi versi & pengembang'),
+            subtitle:
+                context.tr('about_app_desc', 'Informasi versi & pengembang'),
             leading: const HeaderBackButton(),
           ),
           Padding(
@@ -45,7 +48,8 @@ class TentangAplikasiScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(22),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.upiYellowDeep.withValues(alpha: 0.35),
+                              color: AppColors.upiYellowDeep
+                                  .withValues(alpha: 0.35),
                               blurRadius: 16,
                               offset: const Offset(0, 6),
                             ),
@@ -79,7 +83,8 @@ class TentangAplikasiScreen extends StatelessWidget {
                               color: AppColors.amber.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(
-                                  color: AppColors.amber.withValues(alpha: 0.3)),
+                                  color:
+                                      AppColors.amber.withValues(alpha: 0.3)),
                             ),
                             child: const Text(
                               'UNOFFICIAL',
@@ -95,7 +100,7 @@ class TentangAplikasiScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Versi 1.0.9 (Modern Edition)',
+                        'Versi 1.0.10 (Modern Edition)',
                         style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w600,
@@ -120,10 +125,12 @@ class TentangAplikasiScreen extends StatelessWidget {
                 const SizedBox(height: 20),
 
                 // 2. Keunggulan & Fitur Aplikasi
-                SectionTitle(context.isEnglish ? 'Key Features' : 'Fitur Unggulan'),
+                SectionTitle(
+                    context.isEnglish ? 'Key Features' : 'Fitur Unggulan'),
                 const SizedBox(height: 10),
                 SurfaceCard(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   child: Column(
                     children: [
                       _buildFeatureTile(
@@ -167,7 +174,9 @@ class TentangAplikasiScreen extends StatelessWidget {
                 const SizedBox(height: 20),
 
                 // 3. Kontak Pengembang (Clean Button Link)
-                SectionTitle(context.isEnglish ? 'Developer Support' : 'Dukungan Pengembang'),
+                SectionTitle(context.isEnglish
+                    ? 'Developer Support'
+                    : 'Dukungan Pengembang'),
                 const SizedBox(height: 10),
                 SurfaceCard(
                   child: Column(
@@ -255,7 +264,8 @@ class TentangAplikasiScreen extends StatelessWidget {
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('Aplikasi sudah menggunakan versi terbaru (v1.0.9).'),
+                                content: Text(
+                                    'Aplikasi sudah menggunakan versi terbaru (v1.0.10).'),
                               ),
                             );
                           }
@@ -281,7 +291,99 @@ class TentangAplikasiScreen extends StatelessWidget {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                context.tr('check_update_btn', 'Periksa Pembaruan Aplikasi'),
+                                context.tr('check_update_btn',
+                                    'Periksa Pembaruan Aplikasi'),
+                                style: TextStyle(
+                                  color: context.textPrimary,
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      GestureDetector(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          NotificationService.instance.playTestSound();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                  'Memutar nada dering notifikasi SIAKAD...'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          decoration: BoxDecoration(
+                            color: context.softFill,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: context.border,
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.volume_up_rounded,
+                                color: context.primary,
+                                size: 19,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Uji Suara Notifikasi Pengingat',
+                                style: TextStyle(
+                                  color: context.textPrimary,
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      GestureDetector(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          NotificationService.instance.playTestSound();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Memutar nada dering notifikasi SIAKAD...'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          decoration: BoxDecoration(
+                            color: context.softFill,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: context.border,
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.volume_up_rounded,
+                                color: context.primary,
+                                size: 19,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Uji Suara Notifikasi Pengingat',
                                 style: TextStyle(
                                   color: context.textPrimary,
                                   fontSize: 13.5,
@@ -301,7 +403,7 @@ class TentangAplikasiScreen extends StatelessWidget {
                 // Footer Clean
                 Center(
                   child: Text(
-                    'SIAKAD UNOFFICIAL • Modern Edition v1.0.9',
+                    'SIAKAD UNOFFICIAL • Modern Edition v1.0.10',
                     style: TextStyle(
                       fontSize: 11,
                       color: context.textMuted,

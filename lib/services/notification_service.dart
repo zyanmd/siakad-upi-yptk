@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -34,7 +35,8 @@ class NotificationService {
 
       // Listener ketika notifikasi diklik oleh user
       OneSignal.Notifications.addClickListener((event) {
-        debugPrint('[OneSignal] Notification clicked: ${event.notification.title}');
+        debugPrint(
+            '[OneSignal] Notification clicked: ${event.notification.title}');
         final data = event.notification.additionalData;
         if (data != null && data['type'] == 'jadwal_reminder') {
           debugPrint('[OneSignal] Clicked reminder for: ${data['matkul']}');
@@ -43,11 +45,13 @@ class NotificationService {
 
       // Listener notifikasi muncul di foreground
       OneSignal.Notifications.addForegroundWillDisplayListener((event) {
-        debugPrint('[OneSignal] Foreground notification received: ${event.notification.title}');
+        debugPrint(
+            '[OneSignal] Foreground notification received: ${event.notification.title}');
       });
 
       _initialized = true;
-      debugPrint('[OneSignal] Inisialisasi berhasil dengan App ID: $oneSignalAppId');
+      debugPrint(
+          '[OneSignal] Inisialisasi berhasil dengan App ID: $oneSignalAppId');
     } catch (e) {
       debugPrint('[OneSignal] Gagal inisialisasi: $e');
     }
@@ -78,7 +82,8 @@ class NotificationService {
     // menerima notifikasi jadwal kuliahnya secara konsisten walaupun sesi app berakhir.
     // Jika ada akun lain yang login di device ini, OneSignal.login(newNim) akan otomatis menimpanya.
     _currentNim = null;
-    debugPrint('[OneSignal] onLogout: token push tetap terikat pada NIM mahasiswa untuk pengingat perkuliahan');
+    debugPrint(
+        '[OneSignal] onLogout: token push tetap terikat pada NIM mahasiswa untuk pengingat perkuliahan');
   }
 
   /// Memastikan jadwal kuliah mahasiswa tersimpan permanen di HP dan server VPS.
@@ -98,7 +103,8 @@ class NotificationService {
         if (raw != null) {
           await syncJadwalWithServer(api, nim, raw);
           await prefs.setInt(lastSyncKey, now);
-          debugPrint('[OneSignal] Jadwal untuk NIM $nim berhasil disimpan otomatis ke server');
+          debugPrint(
+              '[OneSignal] Jadwal untuk NIM $nim berhasil disimpan otomatis ke server');
         }
       }
     } catch (e) {
@@ -117,12 +123,14 @@ class NotificationService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_prefEnabledKey, enabled);
     try {
-      await OneSignal.User.addTagWithKey('reminder_15m', enabled ? 'true' : 'false');
+      await OneSignal.User.addTagWithKey(
+          'reminder_15m', enabled ? 'true' : 'false');
     } catch (_) {}
   }
 
   /// Sinkronisasikan data jadwal kuliah ke server agar server dapat mengirim notif 15 menit sebelum jam kuliah
-  Future<void> syncJadwalWithServer(ApiClient api, String nim, dynamic rawJadwalData) async {
+  Future<void> syncJadwalWithServer(
+      ApiClient api, String nim, dynamic rawJadwalData) async {
     if (nim.isEmpty || rawJadwalData == null) return;
     try {
       final payload = {
@@ -135,9 +143,22 @@ class NotificationService {
         '/api/notifications/sync-jadwal',
         body: payload,
       );
-      debugPrint('[OneSignal] Berhasil sinkronisasi jadwal reminder ke server untuk NIM $nim');
+      debugPrint(
+          '[OneSignal] Berhasil sinkronisasi jadwal reminder ke server untuk NIM $nim');
     } catch (e) {
       debugPrint('[OneSignal] Info: Sync jadwal reminder ke server: $e');
+    }
+  }
+
+  static const MethodChannel _nativeChannel =
+      MethodChannel('com.upi.yptk/installer');
+
+  /// Uji coba putar suara notifikasi kustom langsung di perangkat
+  Future<void> playTestSound() async {
+    try {
+      await _nativeChannel.invokeMethod('playTestSound');
+    } catch (e) {
+      debugPrint('[OneSignal] Error playTestSound: $e');
     }
   }
 }

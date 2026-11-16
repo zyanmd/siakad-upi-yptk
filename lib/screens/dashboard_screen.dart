@@ -24,6 +24,7 @@ import 'kartu_qrcode_wisuda_screen.dart';
 import 'kartu_ujian_screen.dart';
 import 'khs_screen.dart';
 import 'krs_screen.dart';
+import '../widgets/krs_dashboard_card.dart';
 import 'materi_screen.dart';
 import 'presensi_screen.dart';
 import 'profil_akademik_screen.dart';
@@ -310,10 +311,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                           ),
 
-                        // Carousel Kartu Unggulan & Progress
+                        // Carousel Kartu Unggulan, Widget KRS & Progress
                         if (_categoryIndex == 0) ...[
                           _buildFeaturedCardsCarousel(
                               context, data, auth.user, jadwals),
+                          const SizedBox(height: 18),
+                          const KrsDashboardCard(),
                           const SizedBox(height: 18),
                           _buildAcademicProgressBanner(
                               context, data, auth.user),
@@ -388,6 +391,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                           ),
                           const SizedBox(height: 12),
+                          if (_categoryIndex == 2) ...[
+                            const KrsDashboardCard(),
+                            const SizedBox(height: 18),
+                          ],
                           _buildLayananKampusSection(context),
                           const SizedBox(height: 20),
                           if (_categoryIndex == 3) _tagihanCta(context),
@@ -832,7 +839,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(width: 14),
 
-          // Kartu 2: Status Akademik & Nilai (Dark Slate Elegan dengan aksen Emas)
+          // Kartu 2: Kartu Rencana Studi (KRS Online)
+          _buildFeaturedCardItem(
+            context,
+            badge: 'Rencana Studi',
+            badgeBg: const Color(0xFF10B981).withValues(alpha: 0.22),
+            badgeTextColor: const Color(0xFF10B981),
+            title: 'KRS Online Semester Ini',
+            subtitle: 'Kelola mata kuliah & beban SKS',
+            tag1Icon: Icons.fact_check_rounded,
+            tag1Text: 'Lihat KRS',
+            tag2Icon: Icons.print_rounded,
+            tag2Text: 'Cetak KRS',
+            gradientColors: isDark
+                ? [const Color(0xFF1E293B), const Color(0xFF0F172A)]
+                : [const Color(0xFF1E293B), const Color(0xFF0F172A)],
+            isLightText: true,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const KrsScreen()),
+            ),
+          ),
+          const SizedBox(width: 14),
+
+          // Kartu 3: Status Akademik & Nilai (Dark Slate Elegan dengan aksen Emas)
           _buildFeaturedCardItem(
             context,
             badge: 'Semester Aktif',

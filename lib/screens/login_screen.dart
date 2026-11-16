@@ -537,7 +537,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     padding: const EdgeInsets.symmetric(
                                         vertical: 16),
                                     child: Text(
-                                      'SIAKAD UNOFFICIAL • v1.0.9',
+                                      'SIAKAD UNOFFICIAL • v1.0.10',
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         fontSize: 11,
