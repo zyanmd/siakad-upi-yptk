@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'api_client.dart';
 
 /// Status update yang dikembalikan server pada `GET /api/app/version`.
@@ -58,7 +59,8 @@ class AppUpdateInfo {
     return out;
   }
 
-  factory AppUpdateInfo.fromJson(Map<String, dynamic> json, String fallbackCurrent) {
+  factory AppUpdateInfo.fromJson(
+      Map<String, dynamic> json, String fallbackCurrent) {
     final rawStatus = (json['status'] ?? 'ok').toString().toLowerCase();
     var status = switch (rawStatus) {
       'force' => AppUpdateStatus.force,
@@ -108,18 +110,88 @@ class AppUpdateService {
   final ApiClient _api;
 
   /// Panggil `GET /api/app/version?current=...&platform=...`.
-  ///
-  /// [currentVersion] adalah versi client (mis. "1.0.0"), [platform] salah
-  /// satu dari `android`, `ios`, `web`.
+  /// Bila gagal atau server offline, fallback ke GitHub Releases API langsung.
   Future<AppUpdateInfo> check({
     required String currentVersion,
     String? platform,
   }) async {
-    final resp = await _api.get('/api/app/version', query: {
-      if (currentVersion.isNotEmpty) 'current': currentVersion,
-      if (platform != null && platform.isNotEmpty) 'platform': platform,
-    });
-    final map = resp is Map ? resp.cast<String, dynamic>() : <String, dynamic>{};
-    return AppUpdateInfo.fromJson(map, currentVersion);
+    try {
+      final resp = await _api.get('/api/app/version', query: {
+        if (currentVersion.isNotEmpty) 'current': currentVersion,
+        if (platform != null && platform.isNotEmpty) 'platform': platform,
+      });
+      final map =
+          resp is Map ? resp.cast<String, dynamic>() : <String, dynamic>{};
+      final info = AppUpdateInfo.fromJson(map, currentVersion);
+      if (info.hasUpdate) return info;
+    } catch (_) {
+      // Server offline / IP berubah, fallback langsung ke GitHub
+    }
+
+    try {
+      final gh = await _checkGitHubDirectly(currentVersion);
+      if (gh != null) return gh;
+    } catch (_) {}
+
+    return AppUpdateInfo.fromJson(const {}, currentVersion);
+  }
+
+  Future<AppUpdateInfo?> _checkGitHubDirectly(String currentVersion) async {
+    try {
+      final dio = Dio(BaseOptions(
+        connectTimeout: const Duration(seconds: 8),
+        receiveTimeout: const Duration(seconds: 8),
+        headers: {'User-Agent': 'Siakad-App-Mobile'},
+      ));
+      final resp = await dio.get<Map<String, dynamic>>(
+        'https://api.github.com/repos/zyanmd/siakad-upi-yptk/releases/latest',
+      );
+      final data = resp.data;
+      if (data == null) return null;
+
+      final tag = (data['tag_name'] ?? '')
+          .toString()
+          .replaceAll(RegExp(r'^[vV]'), '')
+          .trim();
+      if (tag.isEmpty) return null;
+
+      if (AppUpdateInfo.compareVersion(currentVersion, tag) >= 0) {
+        return null;
+      }
+
+      String downloadUrl = (data['html_url'] ?? '').toString();
+      final assets = data['assets'];
+      if (assets is List) {
+        for (final a in assets) {
+          if (a is Map) {
+            final name = (a['name'] ?? '').toString().toLowerCase();
+            if (name.endsWith('.apk')) {
+              downloadUrl =
+                  (a['browser_download_url'] ?? downloadUrl).toString();
+              break;
+            }
+          }
+        }
+      }
+
+      final body = (data['body'] ?? '').toString().trim();
+      final name = (data['name'] ?? 'Pembaruan v$tag Tersedia').toString();
+
+      return AppUpdateInfo(
+        status: AppUpdateStatus.optional,
+        currentVersion: currentVersion,
+        latestVersion: tag,
+        minVersion: '1.0.0',
+        forceUpdate: false,
+        downloadUrl: downloadUrl,
+        title: name,
+        message: body.isNotEmpty
+            ? body
+            : 'Versi $tag telah dirilis di GitHub dengan berbagai fitur baru dan perbaikan.',
+        githubUrl: (data['html_url'] ?? '').toString(),
+      );
+    } catch (_) {
+      return null;
+    }
   }
 }
